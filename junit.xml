@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="24" failures="0" errors="0" time="0.821">
-  <testsuite name="User Controller Tests" errors="0" failures="0" skipped="0" timestamp="2025-05-09T10:44:58" time="0.566" tests="13">
-    <testcase classname="User Controller Tests getUsers should return all users" name="User Controller Tests getUsers should return all users" time="0.006">
+<testsuites name="jest tests" tests="24" failures="0" errors="0" time="0.558">
+  <testsuite name="User Controller Tests" errors="0" failures="0" skipped="0" timestamp="2025-05-09T11:21:30" time="0.287" tests="13">
+    <testcase classname="User Controller Tests getUsers should return all users" name="User Controller Tests getUsers should return all users" time="0.005">
     </testcase>
-    <testcase classname="User Controller Tests getUsers should handle errors" name="User Controller Tests getUsers should handle errors" time="0.001">
+    <testcase classname="User Controller Tests getUsers should handle errors" name="User Controller Tests getUsers should handle errors" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests getUserById should return user when found" name="User Controller Tests getUserById should return user when found" time="0.001">
     </testcase>
     <testcase classname="User Controller Tests getUserById should return 404 when user not found" name="User Controller Tests getUserById should return 404 when user not found" time="0.001">
     </testcase>
-    <testcase classname="User Controller Tests getUserById should handle errors" name="User Controller Tests getUserById should handle errors" time="0.004">
+    <testcase classname="User Controller Tests getUserById should handle errors" name="User Controller Tests getUserById should handle errors" time="0.002">
     </testcase>
-    <testcase classname="User Controller Tests createUser should create and return new user" name="User Controller Tests createUser should create and return new user" time="0.001">
+    <testcase classname="User Controller Tests createUser should create and return new user" name="User Controller Tests createUser should create and return new user" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests createUser should return 400 when user already exists" name="User Controller Tests createUser should return 400 when user already exists" time="0.001">
     </testcase>
@@ -19,21 +19,21 @@
     </testcase>
     <testcase classname="User Controller Tests createUser should handle unexpected errors" name="User Controller Tests createUser should handle unexpected errors" time="0.001">
     </testcase>
-    <testcase classname="User Controller Tests validateUser should validate existing user" name="User Controller Tests validateUser should validate existing user" time="0.002">
+    <testcase classname="User Controller Tests validateUser should validate existing user" name="User Controller Tests validateUser should validate existing user" time="0.003">
     </testcase>
-    <testcase classname="User Controller Tests validateUser should return 400 when X-User-Id header is missing" name="User Controller Tests validateUser should return 400 when X-User-Id header is missing" time="0.001">
+    <testcase classname="User Controller Tests validateUser should return 400 when X-User-Id header is missing" name="User Controller Tests validateUser should return 400 when X-User-Id header is missing" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests validateUser should return 404 when user not found" name="User Controller Tests validateUser should return 404 when user not found" time="0.001">
     </testcase>
     <testcase classname="User Controller Tests validateUser should handle errors" name="User Controller Tests validateUser should handle errors" time="0.001">
     </testcase>
   </testsuite>
-  <testsuite name="User Model Tests" errors="0" failures="0" skipped="0" timestamp="2025-05-09T10:44:58" time="0.193" tests="11">
-    <testcase classname="User Model Tests getAllUsers should return all users" name="User Model Tests getAllUsers should return all users" time="0.004">
+  <testsuite name="User Model Tests" errors="0" failures="0" skipped="0" timestamp="2025-05-09T11:21:30" time="0.194" tests="11">
+    <testcase classname="User Model Tests getAllUsers should return all users" name="User Model Tests getAllUsers should return all users" time="0.003">
     </testcase>
-    <testcase classname="User Model Tests getAllUsers should create users file if it does not exist" name="User Model Tests getAllUsers should create users file if it does not exist" time="0.002">
+    <testcase classname="User Model Tests getAllUsers should create users file if it does not exist" name="User Model Tests getAllUsers should create users file if it does not exist" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests getAllUsers should handle empty users array" name="User Model Tests getAllUsers should handle empty users array" time="0.001">
+    <testcase classname="User Model Tests getAllUsers should handle empty users array" name="User Model Tests getAllUsers should handle empty users array" time="0">
     </testcase>
     <testcase classname="User Model Tests getUserById should return user by ID" name="User Model Tests getUserById should return user by ID" time="0">
     </testcase>
@@ -45,9 +45,9 @@
     </testcase>
     <testcase classname="User Model Tests createUser should throw error if user with ID already exists" name="User Model Tests createUser should throw error if user with ID already exists" time="0.014">
     </testcase>
-    <testcase classname="User Model Tests createUser should throw error if name is not provided" name="User Model Tests createUser should throw error if name is not provided" time="0">
+    <testcase classname="User Model Tests createUser should throw error if name is not provided" name="User Model Tests createUser should throw error if name is not provided" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests createUser should set default role if not provided" name="User Model Tests createUser should set default role if not provided" time="0">
+    <testcase classname="User Model Tests createUser should set default role if not provided" name="User Model Tests createUser should set default role if not provided" time="0.001">
     </testcase>
     <testcase classname="User Model Tests createUser should handle file system errors" name="User Model Tests createUser should handle file system errors" time="0.003">
     </testcase>

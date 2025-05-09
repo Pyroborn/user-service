@@ -15,6 +15,7 @@ pipeline {
                 checkout scm
                 // Install dependencies using clean install
                 sh 'npm ci'
+                // Create test data directory
                 sh 'mkdir -p data/test'
             }
         }
@@ -38,23 +39,25 @@ pipeline {
                 // Create reports directory
                 sh 'mkdir -p reports'
                 // Run tests with coverage
-                sh 'npm run test:coverage || npm run test || echo "Tests failed"'
-            }
-            post {
-                always {
-                    // Publish test results
-                    junit allowEmptyResults: true, testResults: 'reports/junit.xml'
+                sh 'npm run test:coverage'
 
-                    // Publish coverage report
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'coverage/lcov-report',
-                        reportFiles: 'index.html',
-                        reportName: 'Coverage Report'
-                    ])
-                }
+                // Publish test results and coverage
+                junit(testResults: 'reports/junit.xml', allowEmptyResults: true)
+                
+                publishHTML(target: [
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'coverage/lcov-report',
+                    reportFiles: 'index.html',
+                    reportName: 'Coverage Report'
+                ])
+
+                // Archive artifacts
+                archiveArtifacts(
+                    artifacts: 'reports/**, coverage/**',
+                    allowEmptyArchive: true
+                )
             }
         }
 
@@ -68,8 +71,6 @@ pipeline {
 
     post {
         always {
-            // Wrap cleanup and archiving in a node block to get workspace context
-            archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
             cleanWs()
         }
         success {
