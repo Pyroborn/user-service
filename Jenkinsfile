@@ -42,20 +42,18 @@ pipeline {
             }
             post {
                 always {
-                    script {
-                        // Publish test results
-                        junit allowEmptyResults: true, testResults: 'reports/junit.xml'
+                    // Publish test results
+                    junit allowEmptyResults: true, testResults: 'reports/junit.xml'
 
-                        // Publish coverage report
-                        publishHTML(target: [
-                            allowMissing: true,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: 'coverage/lcov-report',
-                            reportFiles: 'index.html',
-                            reportName: 'Coverage Report'
-                        ])
-                    }
+                    // Publish coverage report
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'coverage/lcov-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Coverage Report'
+                    ])
                 }
             }
         }
@@ -70,10 +68,8 @@ pipeline {
 
     post {
         always {
-            // Archive reports and coverage without a node block
+            // Wrap cleanup and archiving in a node block to get workspace context
             archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
-
-            // Clean workspace after pipeline run
             cleanWs()
         }
         success {
