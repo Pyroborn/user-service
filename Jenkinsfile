@@ -60,9 +60,11 @@ pipeline {
 
     post {
         always {
-            script {
-                archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
-                cleanWs()
+            node {
+                script {
+                    archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
+                    cleanWs()
+                }
             }
         }
         success {
