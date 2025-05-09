@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         NODE_VERSION = '18'
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+      
     }
 
     stages {
