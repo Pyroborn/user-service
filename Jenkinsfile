@@ -9,7 +9,11 @@ pipeline {
     stages {
         stage('Setup') {
             steps {
+                // Clean workspace before starting
+                cleanWs()
+                // Checkout code
                 checkout scm
+                // Install dependencies using clean install
                 sh 'npm ci'
                 sh 'mkdir -p data/test'
             }
@@ -17,6 +21,7 @@ pipeline {
 
         stage('Lint') {
             steps {
+                // Run linting
                 sh 'npm run lint || echo "No lint configuration found"'
             }
         }
@@ -30,14 +35,18 @@ pipeline {
                 JEST_JUNIT_OUTPUT_NAME = 'junit.xml'
             }
             steps {
+                // Create reports directory
                 sh 'mkdir -p reports'
+                // Run tests with coverage
                 sh 'npm run test:coverage || npm run test || echo "Tests failed"'
             }
             post {
                 always {
                     script {
+                        // Publish test results
                         junit allowEmptyResults: true, testResults: 'reports/junit.xml'
 
+                        // Publish coverage report
                         publishHTML(target: [
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,
@@ -53,6 +62,7 @@ pipeline {
 
         stage('Build') {
             steps {
+                // Run build if defined
                 sh 'npm run build || echo "No build configuration found"'
             }
         }
@@ -62,7 +72,10 @@ pipeline {
         always {
             node {
                 script {
+                    // Archive reports and coverage
                     archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
+
+                    // Clean workspace after pipeline run
                     cleanWs()
                 }
             }
