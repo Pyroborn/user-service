@@ -70,15 +70,11 @@ pipeline {
 
     post {
         always {
-            node {
-                script {
-                    // Archive reports and coverage
-                    archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
+            // Archive reports and coverage without a node block
+            archiveArtifacts artifacts: 'reports/**, coverage/**', allowEmptyArchive: true
 
-                    // Clean workspace after pipeline run
-                    cleanWs()
-                }
-            }
+            // Clean workspace after pipeline run
+            cleanWs()
         }
         success {
             echo 'Pipeline completed successfully!'
