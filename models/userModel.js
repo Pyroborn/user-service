@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
+const bcrypt = require('bcrypt');
 
 const USER_DB_PATH = path.join(__dirname, '../data/users.json');
 
@@ -36,6 +37,20 @@ const createUser = async (userData) => {
   // Validate required fields
   if (!userData.name) {
     throw new Error('User name is required');
+  }
+  
+  // Validate email if provided
+  if (userData.email) {
+    // Check if email already exists
+    if (data.users.some(user => user.email === userData.email)) {
+      throw new Error(`User with email ${userData.email} already exists`);
+    }
+  }
+  
+  // Hash password if provided
+  if (userData.password) {
+    const salt = await bcrypt.genSalt(10);
+    userData.password = await bcrypt.hash(userData.password, salt);
   }
   
   // Default role if not provided

@@ -4,7 +4,14 @@ const UserModel = require('../models/userModel');
 const getUsers = async (req, res, next) => {
   try {
     const users = await UserModel.getAllUsers();
-    res.json(users);
+    
+    // Remove passwords from all users
+    const usersWithoutPasswords = users.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+    
+    res.json(usersWithoutPasswords);
   } catch (error) {
     next(error);
   }
@@ -20,7 +27,10 @@ const getUserById = async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(user);
+    // Remove password from response
+    const { password, ...userWithoutPassword } = user;
+    
+    res.json(userWithoutPassword);
   } catch (error) {
     next(error);
   }
@@ -31,7 +41,11 @@ const createUser = async (req, res, next) => {
   try {
     const userData = req.body;
     const newUser = await UserModel.createUser(userData);
-    res.status(201).json(newUser);
+    
+    // Don't return password in response
+    const { password, ...userWithoutPassword } = newUser;
+    
+    res.status(201).json(userWithoutPassword);
   } catch (error) {
     if (error.message.includes('already exists') || error.message.includes('required')) {
       return res.status(400).json({ error: error.message });
@@ -56,7 +70,10 @@ const validateUser = async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json({ valid: true, user });
+    // Remove password from response
+    const { password, ...userWithoutPassword } = user;
+    
+    res.json({ valid: true, user: userWithoutPassword });
   } catch (error) {
     next(error);
   }
