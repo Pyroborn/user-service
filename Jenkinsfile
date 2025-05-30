@@ -3,7 +3,11 @@ pipeline {
 
     environment {
         NODE_VERSION = '18'
-      
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKER_REGISTRY = 'docker.io/pyroborn'
+        IMAGE_NAME = 'pyroborn/user-service'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_CONFIG = "${WORKSPACE}/.docker"
     }
 
     stages {
@@ -15,22 +19,14 @@ pipeline {
                 checkout scm
                 // Install dependencies using clean install
                 sh 'npm ci'
-                // Create test data directory
                 sh 'mkdir -p data/test'
-            }
-        }
-
-        stage('Lint') {
-            steps {
-                // Run linting
-                sh 'npm run lint || echo "No lint configuration found"'
             }
         }
 
         stage('Test') {
             environment {
                 NODE_ENV = 'test'
-                PORT = '3001'
+                PORT = '3003'
                 DATA_DIR = './data/test'
                 JEST_JUNIT_OUTPUT_DIR = 'reports'
                 JEST_JUNIT_OUTPUT_NAME = 'junit.xml'
@@ -60,15 +56,78 @@ pipeline {
                 )
             }
         }
-
-        stage('Build') {
+        
+        stage('Build Image') {
             steps {
-                // Run build if defined
-                sh 'npm run build || echo "No build configuration found"'
+                script {
+                    // Build the Docker image
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                }
             }
         }
-    }
+        
+        stage('Security Scan') {
+            steps {
+                script {
+                    // Create directory for Trivy reports
+                    sh 'mkdir -p security-reports'
+                    
+                    // Run Trivy scan but continue even if vulnerabilities are found
+                    sh """
+                        # Install Trivy if not already installed (only needed first time)
+                        if ! command -v trivy &> /dev/null; then
+                            echo "Trivy not found, installing..."
+                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /tmp
+                            export PATH=$PATH:/tmp
+                        fi
+                        
+                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o /tmp/html.tpl
+                        # Run Trivy scan and output to HTML and JSON reports
+                        trivy image --no-progress --exit-code 0 --scanners vuln --format template --template /tmp/html.tpl -o security-reports/trivy-report.html ${IMAGE_NAME}:${BUILD_NUMBER}
+                        trivy image --no-progress --exit-code 0 --scanners vuln --format json -o security-reports/trivy-report.json ${IMAGE_NAME}:${BUILD_NUMBER}
+                        echo "Security scan completed - results won't fail the build"
+                    """
+                    
+                    // Publish HTML report
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'security-reports',
+                        reportFiles: 'trivy-report.html',
+                        reportName: 'Trivy Security Scan'
+                    ])
+                    
+                    // Archive security reports
+                    archiveArtifacts(
+                        artifacts: 'security-reports/**',
+                        allowEmptyArchive: true
+                    )
+                }
+            }
+        }
 
+    stage('Push to DockerHub') {
+            steps {
+                script {
+                    // Create a dummy docker config (optional on newer Jenkins)
+                    sh '''
+                        mkdir -p ${DOCKER_CONFIG}
+                        echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
+                    '''
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                        sh '''
+                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                            docker push ${IMAGE_NAME}:latest
+                            docker logout
+                        '''
+                    }
+                }
+            }
+    }
+    }
     post {
         always {
             cleanWs()
