@@ -159,8 +159,7 @@ pipeline {
                                 git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Pyroborn/k8s-argoCD.git
 
                                 if [ -f deployments/user-service/deployment.yaml ]; then
-                                    sed -i "s#^\([[:space:]]*image: ${IMAGE_NAME}:\).*#\1${BUILD_NUMBER}#g" deployments/user-service/deployment.yaml
-
+                                    sed -i 's#^[[:space:]]*image: ${IMAGE_NAME}:.*#image: ${IMAGE_NAME}:${BUILD_NUMBER}#g' deployments/user-service/deployment.yaml
                                     git add deployments/user-service/deployment.yaml
                                     if git diff --quiet; then
                                         echo "No changes detected"
