@@ -38,6 +38,16 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', service: 'user-service' });
 });
 
+// Liveness probe
+app.get('/health/live', (req, res) => {
+  res.status(200).json({ status: 'live' });
+});
+
+// Readiness probe
+app.get('/health/ready', (req, res) => {
+  res.status(200).json({ status: 'ready' });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
