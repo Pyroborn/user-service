@@ -131,49 +131,49 @@ pipeline {
         }
         
         stage('Update GitOps Repository') {
-            steps {
-                script {
-                    // Create a temporary directory for the git clone
-                    sh 'mkdir -p gitops-repo'
-                    
-                    // Clone the GitOps repository using credentials helper
-                    dir('gitops-repo') {
-                        checkout([
-                            $class: 'GitSCM',
-                            branches: [[name: '*/main']],
-                            extensions: [],
-                            userRemoteConfigs: [[
-                                url: "${GIT_REPO_URL}",
-                                credentialsId: "${GIT_CREDENTIALS_ID}"
-                            ]]
-                        ])
-                        
-                        // Configure git user
-                        sh """
-                            git config user.email "jenkins@example.com"
-                            git config user.name "Jenkins CI"
-                            
-                            # Check if the deployment file exists
-                            if [ -f deployments/user-service/deployment.yaml ]; then
-                                # Update the image tag in the deployment file
-                                sed -i 's|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${BUILD_NUMBER}|g' deployments/user-service/deployment.yaml
-                                
-                                # Commit and push the changes
-                                git add deployments/user-service/deployment.yaml
-                                git commit -m "Update user-service image to ${BUILD_NUMBER}"
-                                
-                                # Push using credentials helper (managed by Jenkins)
-                                git push origin HEAD:main
-                                
-                                echo "Successfully updated GitOps repository with new image tag: ${BUILD_NUMBER}"
-                            else
-                                echo "Deployment file not found at deployments/user-service/deployment.yaml"
-                                exit 1
-                            fi
-                        """
-                    }
+    steps {
+        script {
+            sh 'mkdir -p gitops-repo'
+            
+            dir('gitops-repo') {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        url: "${GIT_REPO_URL}",
+                        credentialsId: "${GIT_CREDENTIALS_ID}"
+                    ]]
+                ])
+
+                // Inject GitHub credentials
+                withCredentials([usernamePassword(
+                    credentialsId: "${GIT_CREDENTIALS_ID}",
+                    usernameVariable: 'GIT_USERNAME',
+                    passwordVariable: 'GIT_PASSWORD'
+                )]) {
+                    sh '''
+                        git config user.email "jenkins@example.com"
+                        git config user.name "Jenkins CI"
+
+                        git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Pyroborn/k8s-argoCD.git
+
+                        if [ -f deployments/user-service/deployment.yaml ]; then
+                            sed -i 's|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${BUILD_NUMBER}|g' deployments/user-service/deployment.yaml
+
+                            git add deployments/user-service/deployment.yaml
+                            git commit -m "Update user-service image to ${BUILD_NUMBER}"
+                            git push origin HEAD:main
+
+                            echo "Successfully updated GitOps repository with new image tag: ${BUILD_NUMBER}"
+                        else
+                            echo "Deployment file not found at deployments/user-service/deployment.yaml"
+                            exit 1
+                        fi
+                    '''
                 }
             }
+        }
         }
     }
     post {
@@ -188,3 +188,4 @@ pipeline {
         }
     }
 }
+}   
