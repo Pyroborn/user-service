@@ -2,10 +2,10 @@
   "name": "user-service",
   "version": "1.0.0",
   "description": "User service for microservices project",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "jest",
     "test:coverage": "jest --coverage --reporters=default --reporters=jest-junit"
   },

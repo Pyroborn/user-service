@@ -16,4 +16,4 @@ RUN mkdir -p /app/data
 EXPOSE 3003
 
 # Command to run the application
-CMD ["npm", "start"] 
+CMD ["node", "index.js"] 
