@@ -152,7 +152,7 @@ pipeline {
                             usernameVariable: 'GIT_USERNAME',
                             passwordVariable: 'GIT_PASSWORD'
                         )]) {
-                            sh '''
+                            sh """
                                 git config user.email "jenkins@example.com"
                                 git config user.name "Jenkins CI"
 
@@ -162,15 +162,18 @@ pipeline {
                                     sed -i 's|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${BUILD_NUMBER}|g' deployments/user-service/deployment.yaml
 
                                     git add deployments/user-service/deployment.yaml
-                                    git commit -m "Update user-service image to ${BUILD_NUMBER}"
-                                    git push origin HEAD:main
-
+                                    if git diff --quiet; then
+                                        echo "No changes detected"
+                                    else
+                                        git commit -m "Update user-service image to ${BUILD_NUMBER}"
+                                        git push origin HEAD:main
+                                    fi
                                     echo "Successfully updated GitOps repository with new image tag: ${BUILD_NUMBER}"
                                 else
                                     echo "Deployment file not found at deployments/user-service/deployment.yaml"
                                     exit 1
                                 fi
-                            '''
+                            """
                         }
                     }
                 }
