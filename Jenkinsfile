@@ -176,13 +176,13 @@ pipeline {
                                     grep -q "${IMAGE_NAME}" deployments/user-service/deployment.yaml || echo "Warning: Image name not found in deployment file"
                                     
                                     # Use perl for more reliable replacement - fix the regex pattern
-                                    perl -i -pe 's|(\\s*image:\\s*${IMAGE_NAME}:)[^\\s\\n]*|\\$1${BUILD_NUMBER}|g' deployments/user-service/deployment.yaml
+                                    perl -i -pe 's|(\\s*image:\\s*'"${IMAGE_NAME}"':)[^\\s\\n]*|\\1'"${BUILD_NUMBER}"'|g' deployments/user-service/deployment.yaml
                                     
                                     # Check if the image line exists, if not, add it
                                     if ! grep -q "image: ${IMAGE_NAME}" deployments/user-service/deployment.yaml; then
                                         echo "Image line not found, adding it..."
                                         # Find the container section for user-service and add the image line
-                                        perl -i -pe 's|(\\s*name:\\s*user-service\\s*\\n)|\\$1          image: ${IMAGE_NAME}:${BUILD_NUMBER}\\n|g' deployments/user-service/deployment.yaml
+                                        perl -i -pe 's|(\\s*name:\\s*user-service\\s*\\n)|\\1          image: '"${IMAGE_NAME}"':'"${BUILD_NUMBER}"'\\n|g' deployments/user-service/deployment.yaml
                                     fi
                                     
                                     echo "Updated content:"
