@@ -171,18 +171,17 @@ pipeline {
                                     echo "Found deployment file. Current content:"
                                     cat deployments/user-service/deployment.yaml
                                     
-                                    # Update image tag with proper regex
+                                    # Update image tag with proper regex - target only the line after 'name: user-service'
                                     echo "Updating image tag to ${IMAGE_NAME}:${BUILD_NUMBER}"
-                                    grep -q "${IMAGE_NAME}" deployments/user-service/deployment.yaml || echo "Warning: Image name not found in deployment file"
                                     
-                                    # Use perl for more reliable replacement - fix the regex pattern
-                                    perl -i -pe 's|(\\s*image:\\s*'"${IMAGE_NAME}"':)[^\\s\\n]*|\\1'"${BUILD_NUMBER}"'|g' deployments/user-service/deployment.yaml
-                                    
-                                    # Check if the image line exists, if not, add it
-                                    if ! grep -q "image: ${IMAGE_NAME}" deployments/user-service/deployment.yaml; then
-                                        echo "Image line not found, adding it..."
-                                        # Find the container section for user-service and add the image line
-                                        perl -i -pe 's|(\\s*name:\\s*user-service\\s*\\n)|\\1          image: '"${IMAGE_NAME}"':'"${BUILD_NUMBER}"'\\n|g' deployments/user-service/deployment.yaml
+                                    # First check if we can find the container section
+                                    if grep -A 5 "name: user-service" deployments/user-service/deployment.yaml | grep -q "image:"; then
+                                        echo "Found image line near 'name: user-service', updating it..."
+                                        # Only update the image that appears after the 'name: user-service' line and before the next major section
+                                        perl -i -0pe 's|(name: user-service\n\s+)image: '"${IMAGE_NAME}"':[^\n]*|$1image: '"${IMAGE_NAME}"':'"${BUILD_NUMBER}"'|g' deployments/user-service/deployment.yaml
+                                    else
+                                        echo "WARNING: Could not find image line near 'name: user-service'. Please check the deployment file structure."
+                                        cat deployments/user-service/deployment.yaml
                                     fi
                                     
                                     echo "Updated content:"
