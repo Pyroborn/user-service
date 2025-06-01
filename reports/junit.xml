@@ -1,41 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="24" failures="0" errors="0" time="1.222">
-  <testsuite name="tests/models/userModel.test.js" errors="0" failures="0" skipped="0" timestamp="2025-05-21T10:40:38" time="0.833" tests="11">
-    <testcase classname="User Model Tests › getAllUsers" name="should return all users" time="0.01">
+<testsuites name="jest tests" tests="24" failures="0" errors="0" time="1.33">
+  <testsuite name="tests/models/userModel.test.js" errors="0" failures="0" skipped="0" timestamp="2025-06-01T11:14:29" time="0.905" tests="11">
+    <testcase classname="User Model Tests › getAllUsers" name="should return all users" time="0.009">
     </testcase>
     <testcase classname="User Model Tests › getAllUsers" name="should create users file if it does not exist" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests › getAllUsers" name="should handle empty users array" time="0">
+    <testcase classname="User Model Tests › getAllUsers" name="should handle empty users array" time="0.001">
     </testcase>
     <testcase classname="User Model Tests › getUserById" name="should return user by ID" time="0.001">
     </testcase>
     <testcase classname="User Model Tests › getUserById" name="should return null for non-existent user" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests › createUser" name="should create a new user with generated ID" time="0.007">
+    <testcase classname="User Model Tests › createUser" name="should create a new user with generated ID" time="0.008">
     </testcase>
     <testcase classname="User Model Tests › createUser" name="should create a user with provided ID" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests › createUser" name="should throw error if user with ID already exists" time="0.011">
+    <testcase classname="User Model Tests › createUser" name="should throw error if user with ID already exists" time="0.012">
     </testcase>
-    <testcase classname="User Model Tests › createUser" name="should throw error if name is not provided" time="0.001">
+    <testcase classname="User Model Tests › createUser" name="should throw error if name is not provided" time="0.002">
     </testcase>
     <testcase classname="User Model Tests › createUser" name="should set default role if not provided" time="0.001">
     </testcase>
-    <testcase classname="User Model Tests › createUser" name="should handle file system errors" time="0.002">
+    <testcase classname="User Model Tests › createUser" name="should handle file system errors" time="0.003">
     </testcase>
   </testsuite>
-  <testsuite name="tests/controllers/userController.test.js" errors="0" failures="0" skipped="0" timestamp="2025-05-21T10:40:38" time="0.851" tests="13">
-    <testcase classname="User Controller Tests › getUsers" name="should return all users" time="0.008">
+  <testsuite name="tests/controllers/userController.test.js" errors="0" failures="0" skipped="0" timestamp="2025-06-01T11:14:29" time="0.942" tests="13">
+    <testcase classname="User Controller Tests › getUsers" name="should return all users" time="0.018">
     </testcase>
-    <testcase classname="User Controller Tests › getUsers" name="should handle errors" time="0.001">
+    <testcase classname="User Controller Tests › getUsers" name="should handle errors" time="0.003">
     </testcase>
-    <testcase classname="User Controller Tests › getUserById" name="should return user when found" time="0.001">
+    <testcase classname="User Controller Tests › getUserById" name="should return user when found" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests › getUserById" name="should return 404 when user not found" time="0.001">
     </testcase>
     <testcase classname="User Controller Tests › getUserById" name="should handle errors" time="0.001">
     </testcase>
-    <testcase classname="User Controller Tests › createUser" name="should create and return new user" time="0.001">
+    <testcase classname="User Controller Tests › createUser" name="should create and return new user" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests › createUser" name="should return 400 when user already exists" time="0.001">
     </testcase>
@@ -47,7 +47,7 @@
     </testcase>
     <testcase classname="User Controller Tests › validateUser" name="should return 400 when X-User-Id header is missing" time="0.001">
     </testcase>
-    <testcase classname="User Controller Tests › validateUser" name="should return 404 when user not found" time="0.001">
+    <testcase classname="User Controller Tests › validateUser" name="should return 404 when user not found" time="0.002">
     </testcase>
     <testcase classname="User Controller Tests › validateUser" name="should handle errors" time="0.001">
     </testcase>
