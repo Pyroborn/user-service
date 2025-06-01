@@ -177,8 +177,8 @@ pipeline {
                                     # First check if we can find the container section
                                     if grep -A 5 "name: user-service" deployments/user-service/deployment.yaml | grep -q "image:"; then
                                         echo "Found image line near 'name: user-service', updating it..."
-                                        # Only update the image that appears after the 'name: user-service' line and before the next major section
-                                        perl -i -0pe "s|(name: user-service\\n\\s+)image: ${IMAGE_NAME}:[^\\n]*|\$1image: ${IMAGE_NAME}:${BUILD_NUMBER}|g" deployments/user-service/deployment.yaml
+                                        # Only update the image line, NOT the name line
+                                        perl -i -pe "s/^(\\s+)image: ${IMAGE_NAME}:[^\\n]*/\$1image: ${IMAGE_NAME}:${BUILD_NUMBER}/g" deployments/user-service/deployment.yaml
                                     else
                                         echo "WARNING: Could not find image line near 'name: user-service'. Please check the deployment file structure."
                                         cat deployments/user-service/deployment.yaml
