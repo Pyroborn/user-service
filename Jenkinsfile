@@ -97,8 +97,8 @@ pipeline {
                                 -Dsonar.organization=pyroborn \
                                 -Dsonar.host.url=https://sonarcloud.io \
                                 -Dsonar.login=${SONAR_TOKEN} \
-                                -Dsonar.sources=src \
-                                -Dsonar.tests=tests \
+                                -Dsonar.sources=. \
+                                -Dsonar.tests=. \
                                 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
                                 -Dsonar.testExecutionReportPaths=reports/junit.xml \
                                 -Dsonar.coverage.exclusions="**/*.test.js,**/tests/**,**/node_modules/**,**/coverage/**,**/data/**" \
