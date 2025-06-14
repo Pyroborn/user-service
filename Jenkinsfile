@@ -77,10 +77,16 @@ pipeline {
                             echo "SonarScanner 4.6.2 installed successfully"
                         fi
                     '''
-                    
+
                     // Run SonarCloud analysis
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
+                            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                            export PATH=$JAVA_HOME/bin:$PATH
+
+                            echo "Using Java:"
+                            java -version
+
                             export PATH=$PATH:$(pwd)/sonar-scanner/bin
                             
                             echo "Starting SonarCloud analysis..."
