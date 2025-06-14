@@ -63,14 +63,18 @@ pipeline {
         stage('SonarCloud Analysis') {
             steps {
                 script {
-                    // Install SonarScanner if not available
+                    // Check Java version and install compatible SonarScanner
                     sh '''
+                        echo "Checking Java version..."
+                        java -version
+                        
                         if ! command -v sonar-scanner &> /dev/null; then
-                            echo "Installing SonarScanner..."
-                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
-                            unzip -q sonar-scanner-cli-4.8.0.2856-linux.zip
-                            mv sonar-scanner-4.8.0.2856-linux sonar-scanner
+                            echo "Installing SonarScanner compatible with Java 11..."
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip
+                            unzip -q sonar-scanner-cli-4.7.0.2747-linux.zip
+                            mv sonar-scanner-4.7.0.2747-linux sonar-scanner
                             chmod +x sonar-scanner/bin/sonar-scanner
+                            echo "SonarScanner 4.7.0 installed successfully"
                         fi
                     '''
                     
