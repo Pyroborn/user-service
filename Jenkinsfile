@@ -75,7 +75,7 @@ pipeline {
                     '''
                     
                     // Run SonarCloud analysis
-                    withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
                             export PATH=$PATH:$(pwd)/sonar-scanner/bin
                             
