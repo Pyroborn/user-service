@@ -69,12 +69,12 @@ pipeline {
                         java -version
                         
                         if ! command -v sonar-scanner &> /dev/null; then
-                            echo "Installing SonarScanner compatible with Java 11..."
-                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip
-                            unzip -q sonar-scanner-cli-4.7.0.2747-linux.zip
-                            mv sonar-scanner-4.7.0.2747-linux sonar-scanner
+                            echo "Installing SonarScanner 4.6.2 compatible with Java 11..."
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip
+                            unzip -q sonar-scanner-cli-4.6.2.2472-linux.zip
+                            mv sonar-scanner-4.6.2.2472-linux sonar-scanner
                             chmod +x sonar-scanner/bin/sonar-scanner
-                            echo "SonarScanner 4.7.0 installed successfully"
+                            echo "SonarScanner 4.6.2 installed successfully"
                         fi
                     '''
                     
