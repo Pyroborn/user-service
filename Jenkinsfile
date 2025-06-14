@@ -65,27 +65,26 @@ pipeline {
                 script {
                     // Check Java version and install compatible SonarScanner
                     sh '''
-                        echo "Checking Java version..."
+                    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                            export PATH=$JAVA_HOME/bin:$PATH
+
+                        echo "Using Java:"
                         java -version
                         
                         if ! command -v sonar-scanner &> /dev/null; then
-                            echo "Installing SonarScanner 4.6.2 compatible with Java 11..."
-                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip
-                            unzip -q sonar-scanner-cli-4.6.2.2472-linux.zip
-                            mv sonar-scanner-4.6.2.2472-linux sonar-scanner
+                            echo "Installing SonarScanner 5.0.1 compatible with Java 17..."
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                            unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
+                            mv sonar-scanner-5.0.1.3006-linux sonar-scanner
                             chmod +x sonar-scanner/bin/sonar-scanner
-                            echo "SonarScanner 4.6.2 installed successfully"
+                            echo "SonarScanner 5.0.1 installed successfully"
                         fi
                     '''
 
                     // Run SonarCloud analysis
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
-                            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-                            export PATH=$JAVA_HOME/bin:$PATH
-
-                            echo "Using Java:"
-                            java -version
+                            
 
                             export PATH=$PATH:$(pwd)/sonar-scanner/bin
                             
