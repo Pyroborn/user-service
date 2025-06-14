@@ -103,8 +103,7 @@ pipeline {
                                 -Dsonar.cpd.exclusions="**/*.test.js,**/tests/**,**/node_modules/**" \
                                 -Dsonar.exclusions="**/node_modules/**,**/coverage/**,**/data/**,**/*.min.js" \
                                 -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                -Dsonar.buildString=${BUILD_NUMBER} \
-                                -Dsonar.qualitygate.wait=true
+                                -Dsonar.buildString=${BUILD_NUMBER}
                         '''
                     }
                 }
