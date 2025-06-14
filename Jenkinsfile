@@ -84,9 +84,8 @@ pipeline {
                     // Run SonarCloud analysis
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
-                            
-
-                            export PATH=$PATH:$(pwd)/sonar-scanner/bin
+                            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                            export PATH=$JAVA_HOME/bin:$PATH:$(pwd)/sonar-scanner/bin
                             
                             echo "Starting SonarCloud analysis..."
                             echo "Project Key: Pyroborn_user-service"
