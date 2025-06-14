@@ -1,11 +1,11 @@
 const UserModel = require('../models/userModel');
 
-// Get all users
+// Retrieve all users
 const getUsers = async (req, res, next) => {
   try {
     const users = await UserModel.getAllUsers();
     
-    // Remove passwords from all users
+    // Remove passwords from response
     const usersWithoutPasswords = users.map(user => {
       const { password, ...userWithoutPassword } = user;
       return userWithoutPassword;
@@ -17,7 +17,7 @@ const getUsers = async (req, res, next) => {
   }
 };
 
-// Get a single user by ID
+// Retrieve a user by ID
 const getUserById = async (req, res, next) => {
   try {
     const userId = req.params.id;
@@ -42,7 +42,7 @@ const createUser = async (req, res, next) => {
     const userData = req.body;
     const newUser = await UserModel.createUser(userData);
     
-    // Don't return password in response
+    // Remove password from response
     const { password, ...userWithoutPassword } = newUser;
     
     res.status(201).json(userWithoutPassword);
@@ -54,10 +54,9 @@ const createUser = async (req, res, next) => {
   }
 };
 
-// Validate user existence
+// Validate user from header
 const validateUser = async (req, res, next) => {
   try {
-    // Extract user ID from X-User-Id header
     const userId = req.header('X-User-Id');
     
     if (!userId) {

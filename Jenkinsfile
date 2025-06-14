@@ -10,16 +10,17 @@ pipeline {
         DOCKER_CONFIG = "${WORKSPACE}/.docker"
         GIT_REPO_URL = 'https://github.com/Pyroborn/k8s-argoCD.git'
         GIT_CREDENTIALS_ID = 'github-credentials'
+        SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
     stages {
         stage('Setup') {
             steps {
-                // Clean workspace before starting
+                // Clean workspace
                 cleanWs()
                 // Checkout code
                 checkout scm
-                // Install dependencies using clean install
+                // Install dependencies
                 sh 'npm ci'
                 sh 'mkdir -p data/test'
             }
@@ -59,61 +60,67 @@ pipeline {
             }
         }
         
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.projectKey=Pyroborn_user-service -Dsonar.organization=pyroborn"
+                }
+            }
+            }
+        
         stage('Build Image') {
             steps {
                 script {
-                    // Build the Docker image
+                    // Build Docker image
                     sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
                     sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
                 }
             }
         }
         
-        stage('Security Scan') {
-            steps {
-                script {
-                    // Create directory for Trivy reports
-                    sh 'mkdir -p security-reports'
-                    
-                    // Run Trivy scan but continue even if vulnerabilities are found
-                    sh """
-                        # Install Trivy if not already installed (only needed first time)
-                        if ! command -v trivy &> /dev/null; then
-                            echo "Trivy not found, installing..."
-                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /tmp
-                            export PATH=$PATH:/tmp
-                        fi
-                        
-                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o /tmp/html.tpl
-                        # Run Trivy scan and output to HTML and JSON reports
-                        trivy image --no-progress --exit-code 0 --scanners vuln --format template --template /tmp/html.tpl -o security-reports/trivy-report.html ${IMAGE_NAME}:${BUILD_NUMBER}
-                        trivy image --no-progress --exit-code 0 --scanners vuln --format json -o security-reports/trivy-report.json ${IMAGE_NAME}:${BUILD_NUMBER}
-                        echo "Security scan completed - results won't fail the build"
-                    """
-                    
-                    // Publish HTML report
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'security-reports',
-                        reportFiles: 'trivy-report.html',
-                        reportName: 'Trivy Security Scan'
-                    ])
-                    
-                    // Archive security reports
-                    archiveArtifacts(
-                        artifacts: 'security-reports/**',
-                        allowEmptyArchive: true
-                    )
-                }
+        stage('Trivy Container Security Scan') {
+        steps {
+            script {
+            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
+            sh 'mkdir -p security-reports'
+
+            // Download the official Trivy HTML template
+            sh '''
+                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+                -o /tmp/html.tpl
+            '''
+
+            // Run Trivy scans using the downloaded html.tpl and JSON output format
+            sh """
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format template --template "@/tmp/html.tpl" \
+                -o security-reports/trivy-report.html ${imageName}
+
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format json \
+                -o security-reports/trivy-report.json ${imageName}
+
+                echo "Security scan completed - results won't fail the build"
+            """
+
+            // Publish and archive reports
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'security-reports',
+                reportFiles: 'trivy-report.html',
+                reportName: 'Trivy Security Scan'
+            ])
+            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
             }
+        }
         }
 
         stage('Push to DockerHub') {
             steps {
                 script {
-                    // Create a dummy docker config (optional on newer Jenkins)
+                    // Create docker config
                     sh '''
                         mkdir -p ${DOCKER_CONFIG}
                         echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
@@ -133,12 +140,11 @@ pipeline {
         stage('Update GitOps Repository') {
             steps {
                 script {
-                    // Temporary directory for GitOps repo
+                    // Create GitOps repo directory
                     sh 'rm -rf gitops-repo && mkdir -p gitops-repo'
                     
-                    // Clone with Jenkins GitSCM
+                    // Clone repository
                     dir('gitops-repo') {
-                        // Use the built-in Git SCM to clone
                         checkout([
                             $class: 'GitSCM',
                             branches: [[name: '*/main']],
@@ -152,7 +158,7 @@ pipeline {
                             ]]
                         ])
                         
-                        // Set up Git with credentials for push
+                        // Configure Git for push
                         withCredentials([usernamePassword(
                             credentialsId: "${GIT_CREDENTIALS_ID}",
                             usernameVariable: 'GIT_USERNAME',
@@ -163,7 +169,7 @@ pipeline {
                                 git config user.email "jenkins@example.com"
                                 git config user.name "Jenkins CI"
                                 
-                                # Verify we can access the deployment file
+                                # Verify deployment file access
                                 ls -la deployments/ || echo "Deployments directory not found"
                                 ls -la deployments/user-service/ || echo "User service directory not found"
                                 
@@ -171,17 +177,15 @@ pipeline {
                                     echo "Found deployment file. Current content:"
                                     cat deployments/user-service/deployment.yaml
                                     
-                                    # Update image tag with proper regex - target only the line after 'name: user-service'
+                                    # Update image tag
                                     echo "Updating image tag to ${IMAGE_NAME}:${BUILD_NUMBER}"
                                     
-                                    # First check if we can find the container section
+                                    # Check for container section
                                     if grep -A 5 "name: user-service" deployments/user-service/deployment.yaml | grep -q "image:"; then
                                         echo "Found image line near 'name: user-service', updating it..."
-                                        # Use sed to maintain exact indentation (8 spaces/2 tabs)
                                         sed -i "s|^\\(        image: ${IMAGE_NAME}:\\).*|\\1${BUILD_NUMBER}|g" deployments/user-service/deployment.yaml
                                     else
                                         echo "WARNING: Could not find image line near 'name: user-service'. Please check the deployment file structure."
-                                        # Insert image line with proper indentation (8 spaces) after the name line
                                         sed -i "/^        - name: user-service/ a\\        image: ${IMAGE_NAME}:${BUILD_NUMBER}" deployments/user-service/deployment.yaml
                                     fi
                                     
@@ -196,7 +200,7 @@ pipeline {
                                         git add deployments/user-service/deployment.yaml
                                         git commit -m "Update user-service image to ${BUILD_NUMBER}"
                                         
-                                        # Set up remote URL with credentials
+                                        # Set up remote with credentials
                                         git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Pyroborn/k8s-argoCD.git
                                         
                                         # Push changes
@@ -205,7 +209,6 @@ pipeline {
                                     fi
                                 else
                                     echo "ERROR: Deployment file not found at deployments/user-service/deployment.yaml"
-                                    # List directory structure to help diagnose
                                     find . -type f -name "*.yaml" | sort
                                     exit 1
                                 fi

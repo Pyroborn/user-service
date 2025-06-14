@@ -2,18 +2,18 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install dependencies
 COPY package*.json ./
 RUN npm install --production
 
 # Copy application code
 COPY . .
 
-# Create data directory for JSON storage
+# Create data directory
 RUN mkdir -p /app/data
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 3003
 
-# Command to run the application
+# Start application
 CMD ["node", "index.js"] 

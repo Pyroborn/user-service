@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const userRoutes = require('./routes/userRoutes');
 
-// Try to load JWT config, fallback to environment variable
+// Load JWT config or use environment variables
 let jwtConfig;
 try {
   jwtConfig = require('./config/jwt');
@@ -36,7 +36,7 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-// Ensure data directory exists
+// Create data directory
 fs.ensureDirSync('./data');
 
 // Middleware
@@ -44,12 +44,11 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Helper function to read users
+// Read users helper function
 async function readUsers() {
   try {
     const filePath = path.join(__dirname, 'data', 'users.json');
     
-    // Check if file exists, create it if not
     if (!await fs.pathExists(filePath)) {
       await fs.writeFile(filePath, JSON.stringify({ users: [] }, null, 2));
       return [];
@@ -104,10 +103,8 @@ app.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate the token
     const token = jwtConfig.generateToken(user);
 
-    // Don't send password in response
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
@@ -120,7 +117,7 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// Protected route to get current user
+// Get current user route
 app.get('/auth/me', authMiddleware, async (req, res) => {
   try {
     const users = await readUsers();
@@ -130,7 +127,6 @@ app.get('/auth/me', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Don't send password in response
     const { password: _, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
   } catch (error) {
@@ -141,8 +137,6 @@ app.get('/auth/me', authMiddleware, async (req, res) => {
 
 // Token verification endpoint
 app.get('/auth/verify', authMiddleware, (req, res) => {
-  // If middleware passes, the token is valid
-  // Return user info from the token
   res.json({
     userId: req.user.userId,
     email: req.user.email,
@@ -151,10 +145,10 @@ app.get('/auth/verify', authMiddleware, (req, res) => {
   });
 });
 
-// Use user routes for regular user operations
+// User routes
 app.use('/users', userRoutes);
 
-// Root route with documentation
+// Root route - API documentation
 app.get('/', (req, res) => {
   res.json({
     service: 'user-service',
@@ -178,13 +172,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoints - ensure these match exactly what Kubernetes is looking for
-// General health check
+// Health check endpoints
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', service: 'user-service' });
 });
 
-// Make sure we catch both with and without leading slash for maximum compatibility
 app.get('health', (req, res) => {
   res.status(200).json({ status: 'healthy', service: 'user-service' });
 });
@@ -207,7 +199,6 @@ app.get('/health/ready', (req, res) => {
   res.status(200).json({ status: 'ready' });
 });
 
-// Also handle without leading slash
 app.get('health/ready', (req, res) => {
   console.log('Readiness probe called (no leading slash)');
   res.status(200).json({ status: 'ready' });
@@ -215,20 +206,13 @@ app.get('health/ready', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' ? null : err.message
-  });
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`User service running on port ${PORT}`);
-  console.log(`Health endpoints available at:`);
-  console.log(`- /health`);
-  console.log(`- /health/live`);
-  console.log(`- /health/ready`);
 });
 
 module.exports = app; // For testing 

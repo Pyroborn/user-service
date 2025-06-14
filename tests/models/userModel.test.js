@@ -18,7 +18,7 @@ describe('User Model Tests', () => {
     };
 
     beforeEach(() => {
-        // Clear all mocks before each test
+        // Reset mocks
         jest.clearAllMocks();
         
         // Setup default mock implementations
@@ -123,9 +123,7 @@ describe('User Model Tests', () => {
         });
 
         it('should handle file system errors', async () => {
-            // Mock readJSON to return empty users array to pass the existence check
             fs.readJSON.mockResolvedValueOnce({ users: [] });
-            // Mock writeJSON to throw an error
             fs.writeJSON.mockRejectedValueOnce(new Error('File system error'));
             
             await expect(createUser(newUserData))

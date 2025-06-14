@@ -10,7 +10,7 @@ describe('User Controller Tests', () => {
     let next;
 
     beforeEach(() => {
-        // Reset all mocks
+        // Reset mocks
         jest.clearAllMocks();
         
         // Setup request and response objects
