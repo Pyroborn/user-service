@@ -60,13 +60,65 @@ pipeline {
             }
         }
         
-        stage('SonarQube Analysis') {
+        stage('SonarCloud Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.projectKey=Pyroborn_user-service -Dsonar.organization=pyroborn"
+                script {
+                    // Install SonarScanner if not available
+                    sh '''
+                        if ! command -v sonar-scanner &> /dev/null; then
+                            echo "Installing SonarScanner..."
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
+                            unzip -q sonar-scanner-cli-4.8.0.2856-linux.zip
+                            mv sonar-scanner-4.8.0.2856-linux sonar-scanner
+                            chmod +x sonar-scanner/bin/sonar-scanner
+                        fi
+                    '''
+                    
+                    // Run SonarCloud analysis
+                    withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+                        sh '''
+                            export PATH=$PATH:$(pwd)/sonar-scanner/bin
+                            
+                            echo "Starting SonarCloud analysis..."
+                            echo "Project Key: Pyroborn_user-service"
+                            echo "Organization: pyroborn"
+                            
+                            sonar-scanner \
+                                -Dsonar.projectKey=Pyroborn_user-service \
+                                -Dsonar.organization=pyroborn \
+                                -Dsonar.host.url=https://sonarcloud.io \
+                                -Dsonar.login=${SONAR_TOKEN} \
+                                -Dsonar.sources=src \
+                                -Dsonar.tests=tests \
+                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                -Dsonar.testExecutionReportPaths=reports/junit.xml \
+                                -Dsonar.coverage.exclusions="**/*.test.js,**/tests/**,**/node_modules/**,**/coverage/**,**/data/**" \
+                                -Dsonar.cpd.exclusions="**/*.test.js,**/tests/**,**/node_modules/**" \
+                                -Dsonar.exclusions="**/node_modules/**,**/coverage/**,**/data/**,**/*.min.js" \
+                                -Dsonar.projectVersion=${BUILD_NUMBER} \
+                                -Dsonar.buildString=${BUILD_NUMBER} \
+                                -Dsonar.qualitygate.wait=true
+                        '''
+                    }
                 }
             }
+            post {
+                always {
+                    // Archive SonarCloud reports if they exist
+                    script {
+                        if (fileExists('.scannerwork/report-task.txt')) {
+                            archiveArtifacts artifacts: '.scannerwork/report-task.txt', allowEmptyArchive: true
+                        }
+                    }
+                }
+                failure {
+                    echo 'SonarCloud analysis failed!'
+                }
+                success {
+                    echo 'SonarCloud analysis completed successfully!'
+                }
             }
+        }
         
         stage('Build Image') {
             steps {
