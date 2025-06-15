@@ -67,7 +67,7 @@ pipeline {
                     // Run SonarCloud analysis using Jenkins tool
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                        sh '''
+                        sh """
                             echo "Starting SonarCloud analysis..."
                             echo "Project Key: Pyroborn_user-service"
                             echo "Organization: pyroborn"
@@ -85,7 +85,7 @@ pipeline {
                                 -Dsonar.exclusions="**/node_modules/**,**/coverage/**,**/data/**,**/*.min.js" \
                                 -Dsonar.projectVersion=${BUILD_NUMBER} \
                                 -Dsonar.buildString=${BUILD_NUMBER}
-                        '''
+                        """
                     }
                 }
             }
