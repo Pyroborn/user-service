@@ -340,20 +340,74 @@ pipeline {
                             if [ -f "security-reports/checkov-report.json" ]; then
                                 echo "=== Checkov Summary ==="
                                 python3 -c "
-import json
-try:
-    with open('security-reports/checkov-report.json', 'r') as f:
-        data = json.load(f)
-    summary = data.get('summary', {})
-    passed = summary.get('passed', 0)
-    failed = summary.get('failed', 0)
-    skipped = summary.get('skipped', 0)
-    print(f'Passed: {passed}, Failed: {failed}, Skipped: {skipped}')
-    if failed > 0:
-        print(f'Found {failed} security issues - check JSON report for details')
-except:
-    print('Could not parse summary')
-"
+                            import json
+                            try:
+                                with open('security-reports/checkov-report.json', 'r') as f:
+                                    data = json.load(f)
+                                
+                                # Get summary
+                                summary = data.get('summary', {})
+                                passed = summary.get('passed', 0)
+                                failed = summary.get('failed', 0)
+                                skipped = summary.get('skipped', 0)
+                                
+                                print(f'📊 Total: {passed + failed + skipped} checks | ✅ Passed: {passed} | ❌ Failed: {failed} | ⏭️ Skipped: {skipped}')
+                                
+                                # Show failed checks details
+                                if failed > 0:
+                                    print(f'🚨 Security Issues Found ({failed} failures):')
+                                    print('=' * 80)
+                                    
+                                    failed_checks = data.get('results', {}).get('failed_checks', [])
+                                    
+                                    # Group by check type for better readability
+                                    check_groups = {}
+                                    for check in failed_checks[:20]:  # Limit to first 20 for console
+                                        check_id = check.get('check_id', 'Unknown')
+                                        check_name = check.get('check_name', 'Unknown Check')
+                                        file_path = check.get('file_path', 'Unknown File')
+                                        resource = check.get('resource', 'Unknown Resource')
+                                        
+                                        if check_id not in check_groups:
+                                            check_groups[check_id] = {
+                                                'name': check_name,
+                                                'files': []
+                                            }
+                                        check_groups[check_id]['files'].append(f'{file_path} ({resource})')
+                                    
+                                    # Display grouped results
+                                    for i, (check_id, info) in enumerate(check_groups.items(), 1):
+                                        print(f'{i:2d}. {check_id}: {info["name"]}')
+                                        for file_info in info['files'][:3]:  # Show max 3 files per check
+                                            print(f'    📁 {file_info}')
+                                        if len(info['files']) > 3:
+                                            print(f'    ... and {len(info["files"]) - 3} more files')
+                                        print()
+                                    
+                                    if len(failed_checks) > 20:
+                                        print(f'... and {len(failed_checks) - 20} more issues (check JSON report for complete list)')
+                                    
+                                    print('💡 Common Kubernetes security issues to fix:')
+                                    print('   • Add resource limits and requests')
+                                    print('   • Set security contexts (runAsNonRoot, readOnlyRootFilesystem)')
+                                    print('   • Configure network policies')
+                                    print('   • Add liveness/readiness probes')
+                                    print('   • Use specific image tags (avoid :latest)')
+                                    
+                                else:
+                                    print('🎉 No security issues found! All checks passed.')
+                                    
+                            except Exception as e:
+                                print(f'Could not parse summary: {e}')
+                                # Fallback - show raw summary
+                                try:
+                                    with open('security-reports/checkov-report.json', 'r') as f:
+                                        data = json.load(f)
+                                    summary = data.get('summary', {})
+                                    print(f'Raw summary: {summary}')
+                                except:
+                                    print('Could not read report file')
+                            "
                             else
                                 echo "No Checkov report generated - checking what files exist:"
                                 find security-reports/ -name "*.json" -o -name "*.txt" | head -5
