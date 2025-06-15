@@ -286,10 +286,13 @@ pipeline {
                     // Run Checkov scan on GitOps repository
                     sh '''
                         # Add common Checkov installation paths to PATH
-                        export PATH=$PATH:/home/mert/.local/bin/checkov
+                        export PATH=$PATH:/home/mert/.local/bin
+
+                        chmod +x /home/mert/.local/bin/checkov
                         
                         echo "Checking Checkov installation..."
                         checkov --version
+
                         
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
