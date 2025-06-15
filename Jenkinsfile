@@ -63,24 +63,6 @@ pipeline {
         stage('SonarCloud Analysis') {
             steps {
                 script {
-                    // Check Java version and install compatible SonarScanner
-                    sh '''
-                    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-                            export PATH=$JAVA_HOME/bin:$PATH
-
-                        echo "Using Java:"
-                        java -version
-                        
-                        if ! command -v sonar-scanner &> /dev/null; then
-                            echo "Installing SonarScanner 5.0.1 compatible with Java 17..."
-                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                            unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
-                            mv sonar-scanner-5.0.1.3006-linux sonar-scanner
-                            chmod +x sonar-scanner/bin/sonar-scanner
-                            echo "SonarScanner 5.0.1 installed successfully"
-                        fi
-                    '''
-
                     // Run SonarCloud analysis
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
@@ -90,6 +72,15 @@ pipeline {
                             echo "Starting SonarCloud analysis..."
                             echo "Project Key: Pyroborn_user-service"
                             echo "Organization: pyroborn"
+                            
+                            # Use existing sonar-scanner or install if needed
+                            if ! command -v sonar-scanner &> /dev/null; then
+                                echo "Installing SonarScanner..."
+                                wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                                unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
+                                mv sonar-scanner-5.0.1.3006-linux sonar-scanner
+                                chmod +x sonar-scanner/bin/sonar-scanner
+                            fi
                             
                             sonar-scanner \
                                 -Dsonar.projectKey=Pyroborn_user-service \
@@ -285,18 +276,11 @@ pipeline {
                     
                     // Run Checkov scan on GitOps repository
                     sh '''
-                        echo "Installing Checkov to workspace..."
+                        # Add pipx installation path to PATH
+                        export PATH=$PATH:/var/lib/jenkins/.local/bin
                         
-                        # Install Checkov to workspace directory
-                        pip3 install --target ./checkov-install checkov
-                        
-                        # Set up Python path and use checkov
-                        export PYTHONPATH=./checkov-install:$PYTHONPATH
-                        export PATH=./checkov-install/bin:$PATH
-                        
-                        echo "Checkov installation complete"
-                        python3 -m checkov.main --version
-
+                        echo "Checking Checkov installation..."
+                        checkov --version
                         
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
@@ -310,7 +294,7 @@ pipeline {
                                 ls -la gitops-repo/deployments/
                                 
                                 # Run Checkov scan on the deployments directory
-                                python3 -m checkov.main -d gitops-repo/deployments/ \
+                                checkov -d gitops-repo/deployments/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
@@ -323,7 +307,7 @@ pipeline {
                                 ls -la gitops-repo/k8s/
                                 
                                 # Run Checkov scan on the k8s directory
-                                python3 -m checkov.main -d gitops-repo/k8s/ \
+                                checkov -d gitops-repo/k8s/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
@@ -336,7 +320,7 @@ pipeline {
                                 find gitops-repo -name "*.yaml" -o -name "*.yml" | head -10
                                 
                                 # Scan the entire gitops-repo for any YAML files
-                                python3 -m checkov.main -d gitops-repo/ \
+                                checkov -d gitops-repo/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
