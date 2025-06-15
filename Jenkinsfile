@@ -69,9 +69,9 @@ pipeline {
                         def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
                         sh """
                             echo "Starting SonarCloud analysis..."
-                            echo "Project Key: Pyroborn_user-service"
-                            echo "Organization: pyroborn"
+                            echo "Project: Pyroborn_user-service | Organization: pyroborn"
                             
+                            # Run SonarScanner with minimal output
                             ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=Pyroborn_user-service \
                                 -Dsonar.organization=pyroborn \
@@ -84,17 +84,34 @@ pipeline {
                                 -Dsonar.cpd.exclusions="**/*.test.js,**/tests/**,**/node_modules/**" \
                                 -Dsonar.exclusions="**/node_modules/**,**/coverage/**,**/data/**,**/*.min.js" \
                                 -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                -Dsonar.buildString=${BUILD_NUMBER}
+                                -Dsonar.buildString=${BUILD_NUMBER} \
+                                -Dsonar.log.level=WARN \
+                                -Dsonar.verbose=false > sonar-output.log 2>&1
+                            
+                            # Show only summary
+                            echo "=== SonarCloud Analysis Complete ==="
+                            if grep -q "EXECUTION SUCCESS" sonar-output.log; then
+                                echo "✅ Analysis completed successfully"
+                                # Extract and show key metrics
+                                grep -E "(Total time:|EXECUTION SUCCESS)" sonar-output.log | tail -2
+                            else
+                                echo "❌ Analysis failed - check logs"
+                                tail -10 sonar-output.log
+                                exit 1
+                            fi
                         """
                     }
                 }
             }
             post {
                 always {
-                    // Archive SonarCloud reports if they exist
+                    // Archive SonarCloud reports and logs
                     script {
                         if (fileExists('.scannerwork/report-task.txt')) {
                             archiveArtifacts artifacts: '.scannerwork/report-task.txt', allowEmptyArchive: true
+                        }
+                        if (fileExists('sonar-output.log')) {
+                            archiveArtifacts artifacts: 'sonar-output.log', allowEmptyArchive: true
                         }
                     }
                 }
