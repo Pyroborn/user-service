@@ -126,197 +126,6 @@ pipeline {
             }
         }
         
-        stage('Checkov Infrastructure Security Scan') {
-            steps {
-                script {
-                    // Create reports directory
-                    sh 'mkdir -p security-reports'
-                    
-                    // Install Checkov if not available
-                    sh '''
-                        if ! command -v checkov &> /dev/null; then
-                            echo "Installing Checkov..."
-                            pip3 install --user checkov
-                            export PATH=$PATH:$HOME/.local/bin
-                        fi
-                        
-                        echo "Checkov version:"
-                        checkov --version || $HOME/.local/bin/checkov --version
-                    '''
-                    
-                    // Run Checkov scan
-                    sh '''
-                        export PATH=$PATH:$HOME/.local/bin
-                        
-                        echo "Starting Checkov Infrastructure Security Scan..."
-                        echo "Scanning directory: k8s/"
-                        
-                        # Check if k8s directory exists
-                        if [ -d "k8s" ]; then
-                            echo "Found k8s directory, scanning Kubernetes manifests..."
-                            ls -la k8s/
-                            
-                            # Run Checkov scan with multiple output formats
-                            checkov -d k8s/ \
-                                --framework kubernetes \
-                                --output cli \
-                                --output json \
-                                --output-file-path security-reports/checkov-report.json \
-                                --soft-fail \
-                                --compact || echo "Checkov scan completed with findings"
-                            
-                            # Generate HTML report if jq is available
-                            if command -v jq &> /dev/null; then
-                                echo "Generating HTML summary report..."
-                                cat > security-reports/checkov-report.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Checkov Infrastructure Security Scan Report</title>
-    <style>
-                                body { font-family: Arial, sans-serif; margin: 20px; }
-                                .header { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
-                                .passed { color: green; font-weight: bold; }
-                                .failed { color: red; font-weight: bold; }
-                                .summary { background-color: #e9f4ff; padding: 15px; border-radius: 5px; margin: 10px 0; }
-                                .check { margin: 10px 0; padding: 10px; border-left: 4px solid #ccc; }
-                                .check.failed { border-left-color: #ff4444; background-color: #fff5f5; }
-                                .check.passed { border-left-color: #44ff44; background-color: #f5fff5; }
-                                pre { background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }
-                            </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Checkov Infrastructure Security Scan Report</h1>
-        <p>Build: ${BUILD_NUMBER} | Date: $(date)</p>
-    </div>
-    <div class="summary">
-        <h2>Scan Summary</h2>
-        <p>This report shows the results of scanning Kubernetes manifests for security and compliance issues.</p>
-    </div>
-    <div>
-        <h2>Detailed Results</h2>
-        <p>For detailed JSON results, see the checkov-report.json file.</p>
-        <pre>$(cat security-reports/checkov-report.json | jq -r '.summary // "Summary not available"' 2>/dev/null || echo "JSON summary not available")</pre>
-    </div>
-</body>
-</html>
-EOF
-                            else
-                                echo "jq not available, skipping HTML report generation"
-                            fi
-                            
-                        else
-                            echo "WARNING: k8s directory not found in repository root"
-                            echo "Available directories:"
-                            ls -la
-                            
-                            # Create empty report
-                            echo '{"summary": {"failed": 0, "passed": 0, "skipped": 0}, "message": "No k8s directory found"}' > security-reports/checkov-report.json
-                        fi
-                    '''
-                }
-            }
-            post {
-                always {
-                    // Archive Checkov reports
-                    archiveArtifacts(
-                        artifacts: 'security-reports/checkov-*',
-                        allowEmptyArchive: true
-                    )
-                    
-                    // Publish HTML report if it exists
-                    script {
-                        if (fileExists('security-reports/checkov-report.html')) {
-                            publishHTML(target: [
-                                allowMissing: true,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'security-reports',
-                                reportFiles: 'checkov-report.html',
-                                reportName: 'Checkov Security Scan'
-                            ])
-                        }
-                    }
-                }
-                failure {
-                    echo 'Checkov infrastructure security scan encountered issues!'
-                }
-                success {
-                    echo 'Checkov infrastructure security scan completed successfully!'
-                }
-            }
-        }
-
-        stage('Build Image') {
-            steps {
-                script {
-                    // Build Docker image
-                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-                }
-            }
-        }
-        
-        stage('Trivy Container Security Scan') {
-        steps {
-            script {
-            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
-            sh 'mkdir -p security-reports'
-
-            // Download the official Trivy HTML template
-            sh '''
-                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-                -o /tmp/html.tpl
-            '''
-
-            // Run Trivy scans using the downloaded html.tpl and JSON output format
-            sh """
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format template --template "@/tmp/html.tpl" \
-                -o security-reports/trivy-report.html ${imageName}
-
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format json \
-                -o security-reports/trivy-report.json ${imageName}
-
-                echo "Security scan completed - results won't fail the build"
-            """
-
-            // Publish and archive reports
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'security-reports',
-                reportFiles: 'trivy-report.html',
-                reportName: 'Trivy Security Scan'
-            ])
-            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
-            }
-        }
-        }
-
-        stage('Push to DockerHub') {
-            steps {
-                script {
-                    // Create docker config
-                    sh '''
-                        mkdir -p ${DOCKER_CONFIG}
-                        echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
-                    '''
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                        sh '''
-                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-                            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                            docker push ${IMAGE_NAME}:latest
-                            docker logout
-                        '''
-                    }
-                }
-            }
-        }
-        
         stage('Update GitOps Repository') {
             steps {
                 script {
@@ -394,6 +203,246 @@ EOF
                                 fi
                             """
                         }
+                    }
+                }
+            }
+        }
+        
+        stage('Checkov Infrastructure Security Scan') {
+            steps {
+                script {
+                    // Create reports directory
+                    sh 'mkdir -p security-reports'
+                    
+                    // Install Checkov using pipx to avoid externally managed environment
+                    sh '''
+                        if ! command -v checkov &> /dev/null; then
+                            echo "Installing pipx and Checkov..."
+                            
+                            # Install pipx if not available
+                            if ! command -v pipx &> /dev/null; then
+                                sudo apt-get update
+                                sudo apt-get install -y pipx
+                                pipx ensurepath
+                            fi
+                            
+                            # Install Checkov using pipx
+                            pipx install checkov
+                            export PATH=$PATH:$HOME/.local/bin
+                        fi
+                        
+                        echo "Checkov version:"
+                        checkov --version || $HOME/.local/bin/checkov --version
+                    '''
+                    
+                    // Run Checkov scan on GitOps repository
+                    sh '''
+                        export PATH=$PATH:$HOME/.local/bin
+                        
+                        echo "Starting Checkov Infrastructure Security Scan..."
+                        
+                        # Check if GitOps repo directory exists from previous stage
+                        if [ -d "gitops-repo" ]; then
+                            echo "Found GitOps repository, scanning Kubernetes manifests..."
+                            
+                            # Look for deployments directory structure
+                            if [ -d "gitops-repo/deployments" ]; then
+                                echo "Scanning deployments directory..."
+                                ls -la gitops-repo/deployments/
+                                
+                                # Run Checkov scan on the deployments directory
+                                checkov -d gitops-repo/deployments/ \
+                                    --framework kubernetes \
+                                    --output cli \
+                                    --output json \
+                                    --output-file-path security-reports/checkov-report.json \
+                                    --soft-fail \
+                                    --compact || echo "Checkov scan completed with findings"
+                                
+                            elif [ -d "gitops-repo/k8s" ]; then
+                                echo "Scanning k8s directory..."
+                                ls -la gitops-repo/k8s/
+                                
+                                # Run Checkov scan on the k8s directory
+                                checkov -d gitops-repo/k8s/ \
+                                    --framework kubernetes \
+                                    --output cli \
+                                    --output json \
+                                    --output-file-path security-reports/checkov-report.json \
+                                    --soft-fail \
+                                    --compact || echo "Checkov scan completed with findings"
+                                    
+                            else
+                                echo "Searching for YAML files in GitOps repo..."
+                                find gitops-repo -name "*.yaml" -o -name "*.yml" | head -10
+                                
+                                # Scan the entire gitops-repo for any YAML files
+                                checkov -d gitops-repo/ \
+                                    --framework kubernetes \
+                                    --output cli \
+                                    --output json \
+                                    --output-file-path security-reports/checkov-report.json \
+                                    --soft-fail \
+                                    --compact || echo "Checkov scan completed with findings"
+                            fi
+                            
+                            # Generate HTML report
+                            echo "Generating HTML summary report..."
+                            cat > security-reports/checkov-report.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkov Infrastructure Security Scan Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
+        .passed { color: green; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+        .summary { background-color: #e9f4ff; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .check { margin: 10px 0; padding: 10px; border-left: 4px solid #ccc; }
+        .check.failed { border-left-color: #ff4444; background-color: #fff5f5; }
+        .check.passed { border-left-color: #44ff44; background-color: #f5fff5; }
+        pre { background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Checkov Infrastructure Security Scan Report</h1>
+        <p>Build: ${BUILD_NUMBER} | Date: $(date)</p>
+        <p>Scanned: GitOps Repository Kubernetes Manifests</p>
+    </div>
+    <div class="summary">
+        <h2>Scan Summary</h2>
+        <p>This report shows the results of scanning Kubernetes manifests from the GitOps repository for security and compliance issues.</p>
+    </div>
+    <div>
+        <h2>Detailed Results</h2>
+        <p>For detailed JSON results, see the checkov-report.json file.</p>
+        <pre id="summary-content">Loading summary...</pre>
+    </div>
+    <script>
+        // Try to load and display summary from JSON
+        fetch('checkov-report.json')
+            .then(response => response.json())
+            .then(data => {
+                const summaryElement = document.getElementById('summary-content');
+                if (data.summary) {
+                    summaryElement.textContent = JSON.stringify(data.summary, null, 2);
+                } else {
+                    summaryElement.textContent = 'Summary not available in JSON format';
+                }
+            })
+            .catch(error => {
+                document.getElementById('summary-content').textContent = 'Could not load JSON summary';
+            });
+    </script>
+</body>
+</html>
+EOF
+                            
+                        else
+                            echo "WARNING: GitOps repository not found"
+                            echo "This stage should run after the 'Update GitOps Repository' stage"
+                            echo "Available directories:"
+                            ls -la
+                            
+                            # Create empty report
+                            echo '{"summary": {"failed": 0, "passed": 0, "skipped": 0}, "message": "GitOps repository not found"}' > security-reports/checkov-report.json
+                        fi
+                    '''
+                }
+            }
+            post {
+                always {
+                    // Archive Checkov reports
+                    archiveArtifacts(
+                        artifacts: 'security-reports/checkov-*',
+                        allowEmptyArchive: true
+                    )
+                    
+                    // Publish HTML report
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'security-reports',
+                        reportFiles: 'checkov-report.html',
+                        reportName: 'Checkov Security Scan'
+                    ])
+                }
+                failure {
+                    echo 'Checkov infrastructure security scan encountered issues!'
+                }
+                success {
+                    echo 'Checkov infrastructure security scan completed successfully!'
+                }
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                script {
+                    // Build Docker image
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+        
+        stage('Trivy Container Security Scan') {
+        steps {
+            script {
+            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
+            sh 'mkdir -p security-reports'
+
+            // Download the official Trivy HTML template
+            sh '''
+                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+                -o /tmp/html.tpl
+            '''
+
+            // Run Trivy scans using the downloaded html.tpl and JSON output format
+            sh """
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format template --template "@/tmp/html.tpl" \
+                -o security-reports/trivy-report.html ${imageName}
+
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format json \
+                -o security-reports/trivy-report.json ${imageName}
+
+                echo "Security scan completed - results won't fail the build"
+            """
+
+            // Publish and archive reports
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'security-reports',
+                reportFiles: 'trivy-report.html',
+                reportName: 'Trivy Security Scan'
+            ])
+            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
+            }
+        }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                script {
+                    // Create docker config
+                    sh '''
+                        mkdir -p ${DOCKER_CONFIG}
+                        echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
+                    '''
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                        sh '''
+                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                            docker push ${IMAGE_NAME}:latest
+                            docker logout
+                        '''
                     }
                 }
             }
