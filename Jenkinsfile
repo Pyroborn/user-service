@@ -279,9 +279,6 @@ pipeline {
                         # Add pipx installation path to PATH
                         export PATH=$PATH:/var/lib/jenkins/.local/bin
                         
-                        echo "Checking Checkov installation..."
-                        checkov --version
-                        
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
                         # Check if GitOps repo directory exists from previous stage
@@ -291,105 +288,62 @@ pipeline {
                             # Look for deployments directory structure
                             if [ -d "gitops-repo/deployments" ]; then
                                 echo "Scanning deployments directory..."
-                                ls -la gitops-repo/deployments/
                                 
-                                # Run Checkov scan on the deployments directory
+                                # Run Checkov scan with minimal console output
                                 checkov -d gitops-repo/deployments/ \
                                     --framework kubernetes \
-                                    --output cli \
                                     --output json \
                                     --output-file-path security-reports/checkov-report.json \
                                     --soft-fail \
-                                    --compact || echo "Checkov scan completed with findings"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                                 
                             elif [ -d "gitops-repo/k8s" ]; then
                                 echo "Scanning k8s directory..."
-                                ls -la gitops-repo/k8s/
                                 
-                                # Run Checkov scan on the k8s directory
+                                # Run Checkov scan with minimal console output
                                 checkov -d gitops-repo/k8s/ \
                                     --framework kubernetes \
-                                    --output cli \
                                     --output json \
                                     --output-file-path security-reports/checkov-report.json \
                                     --soft-fail \
-                                    --compact || echo "Checkov scan completed with findings"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                                     
                             else
-                                echo "Searching for YAML files in GitOps repo..."
-                                find gitops-repo -name "*.yaml" -o -name "*.yml" | head -10
+                                echo "Scanning entire GitOps repository..."
                                 
-                                # Scan the entire gitops-repo for any YAML files
+                                # Run Checkov scan with minimal console output
                                 checkov -d gitops-repo/ \
                                     --framework kubernetes \
-                                    --output cli \
                                     --output json \
                                     --output-file-path security-reports/checkov-report.json \
                                     --soft-fail \
-                                    --compact || echo "Checkov scan completed with findings"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                             fi
                             
-                            # Generate HTML report
-                            echo "Generating HTML summary report..."
-                            cat > security-reports/checkov-report.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Checkov Infrastructure Security Scan Report</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
-        .passed { color: green; font-weight: bold; }
-        .failed { color: red; font-weight: bold; }
-        .summary { background-color: #e9f4ff; padding: 15px; border-radius: 5px; margin: 10px 0; }
-        .check { margin: 10px 0; padding: 10px; border-left: 4px solid #ccc; }
-        .check.failed { border-left-color: #ff4444; background-color: #fff5f5; }
-        .check.passed { border-left-color: #44ff44; background-color: #f5fff5; }
-        pre { background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Checkov Infrastructure Security Scan Report</h1>
-        <p>Build: ${BUILD_NUMBER} | Date: $(date)</p>
-        <p>Scanned: GitOps Repository Kubernetes Manifests</p>
-    </div>
-    <div class="summary">
-        <h2>Scan Summary</h2>
-        <p>This report shows the results of scanning Kubernetes manifests from the GitOps repository for security and compliance issues.</p>
-    </div>
-    <div>
-        <h2>Detailed Results</h2>
-        <p>For detailed JSON results, see the checkov-report.json file.</p>
-        <pre id="summary-content">Loading summary...</pre>
-    </div>
-    <script>
-        // Try to load and display summary from JSON
-        fetch('checkov-report.json')
-            .then(response => response.json())
-            .then(data => {
-                const summaryElement = document.getElementById('summary-content');
-                if (data.summary) {
-                    summaryElement.textContent = JSON.stringify(data.summary, null, 2);
-                } else {
-                    summaryElement.textContent = 'Summary not available in JSON format';
-                }
-            })
-            .catch(error => {
-                document.getElementById('summary-content').textContent = 'Could not load JSON summary';
-            });
-    </script>
-</body>
-</html>
-EOF
+                            # Show brief summary
+                            if [ -f "security-reports/checkov-report.json" ]; then
+                                echo "=== Checkov Summary ==="
+                                python3 -c "
+                                import json
+                                try:
+                                    with open('security-reports/checkov-report.json', 'r') as f:
+                                        data = json.load(f)
+                                    summary = data.get('summary', {})
+                                    passed = summary.get('passed', 0)
+                                    failed = summary.get('failed', 0)
+                                    skipped = summary.get('skipped', 0)
+                                    print(f'Passed: {passed}, Failed: {failed}, Skipped: {skipped}')
+                                    if failed > 0:
+                                        print(f'Found {failed} security issues - check JSON report for details')
+                                except:
+                                    print('Could not parse summary')
+                                "
+                            else
+                                echo "No Checkov report generated"
+                            fi
                             
                         else
                             echo "WARNING: GitOps repository not found"
-                            echo "This stage should run after the 'Update GitOps Repository' stage"
-                            echo "Available directories:"
-                            ls -la
-                            
-                            # Create empty report
                             echo '{"summary": {"failed": 0, "passed": 0, "skipped": 0}, "message": "GitOps repository not found"}' > security-reports/checkov-report.json
                         fi
                     '''
@@ -402,16 +356,6 @@ EOF
                         artifacts: 'security-reports/checkov-*',
                         allowEmptyArchive: true
                     )
-                    
-                    // Publish HTML report
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'security-reports',
-                        reportFiles: 'checkov-report.html',
-                        reportName: 'Checkov Security Scan'
-                    ])
                 }
                 failure {
                     echo 'Checkov infrastructure security scan encountered issues!'
