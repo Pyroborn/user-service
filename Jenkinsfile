@@ -349,41 +349,40 @@ try:
     
     print(f'📊 Total: {passed + failed + skipped} checks | ✅ Passed: {passed} | ❌ Failed: {failed} | ⏭️ Skipped: {skipped}')
     
-    # Show failed checks details
     if failed > 0:
-        print(f'🚨 Security Issues Found ({failed} failures):')
-        print('=' * 60)
+        print(f'🚨 Found {failed} security issues - generating readable report...')
         
+        # Generate readable text report
         failed_checks = data.get('results', {}).get('failed_checks', [])
         
-        # Group by check type for better readability
-        check_groups = {}
-        for check in failed_checks[:15]:  # Limit to first 15 for console
-            check_id = check.get('check_id', 'Unknown')
-            check_name = check.get('check_name', 'Unknown Check')
-            file_path = check.get('file_path', 'Unknown File')
-            resource = check.get('resource', 'Unknown Resource')
+        with open('security-reports/checkov-readable-report.txt', 'w') as report:
+            report.write("CHECKOV KUBERNETES SECURITY SCAN REPORT\\n")
+            report.write("=" * 50 + "\\n\\n")
+            report.write(f"Summary: {passed} passed, {failed} failed, {skipped} skipped\\n")
+            report.write(f"Total checks: {passed + failed + skipped}\\n")
+            report.write(f"Checkov version: {data.get('checkov_version', 'Unknown')}\\n\\n")
             
-            if check_id not in check_groups:
-                check_groups[check_id] = {
-                    'name': check_name,
-                    'files': []
-                }
-            check_groups[check_id]['files'].append(f'{file_path} ({resource})')
+            report.write("FAILED SECURITY CHECKS:\\n")
+            report.write("-" * 30 + "\\n\\n")
+            
+            for i, check in enumerate(failed_checks, 1):
+                check_id = check.get('check_id', 'Unknown')
+                check_name = check.get('check_name', 'Unknown Check')
+                file_path = check.get('file_path', 'Unknown File')
+                resource = check.get('resource', 'Unknown Resource')
+                description = check.get('description', 'No description available')
+                guideline = check.get('guideline', 'No guideline available')
+                
+                report.write(f"{i}. {check_id}: {check_name}\\n")
+                report.write(f"   File: {file_path}\\n")
+                report.write(f"   Resource: {resource}\\n")
+                report.write(f"   Description: {description}\\n")
+                if guideline and guideline != 'No guideline available':
+                    report.write(f"   Fix: {guideline}\\n")
+                report.write("\\n")
         
-        # Display grouped results
-        for i, (check_id, info) in enumerate(check_groups.items(), 1):
-            print(f'{i:2d}. {check_id}: {info["name"]}')
-            for file_info in info['files'][:2]:  # Show max 2 files per check
-                print(f'    📁 {file_info}')
-            if len(info['files']) > 2:
-                print(f'    ... and {len(info["files"]) - 2} more files')
-            print()
-        
-        if len(failed_checks) > 15:
-            print(f'... and {len(failed_checks) - 15} more issues')
-        
-        print('💡 Check the archived JSON report for complete details')
+        print(f'📄 Readable report generated: security-reports/checkov-readable-report.txt')
+        print('💡 Check archived files for complete details')
         
     else:
         print('🎉 No security issues found! All checks passed.')
