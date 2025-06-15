@@ -285,13 +285,17 @@ pipeline {
                     
                     // Run Checkov scan on GitOps repository
                     sh '''
-                        # Add common Checkov installation paths to PATH
-                        export PATH=$PATH:/home/mert/.local/bin
-
-                        chmod +x /home/mert/.local/bin/checkov
+                        echo "Installing Checkov to workspace..."
                         
-                        echo "Checking Checkov installation..."
-                        checkov --version
+                        # Install Checkov to workspace directory
+                        pip3 install --target ./checkov-install checkov
+                        
+                        # Set up Python path and use checkov
+                        export PYTHONPATH=./checkov-install:$PYTHONPATH
+                        export PATH=./checkov-install/bin:$PATH
+                        
+                        echo "Checkov installation complete"
+                        python3 -m checkov.main --version
 
                         
                         echo "Starting Checkov Infrastructure Security Scan..."
@@ -306,7 +310,7 @@ pipeline {
                                 ls -la gitops-repo/deployments/
                                 
                                 # Run Checkov scan on the deployments directory
-                                checkov -d gitops-repo/deployments/ \
+                                python3 -m checkov.main -d gitops-repo/deployments/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
@@ -319,7 +323,7 @@ pipeline {
                                 ls -la gitops-repo/k8s/
                                 
                                 # Run Checkov scan on the k8s directory
-                                checkov -d gitops-repo/k8s/ \
+                                python3 -m checkov.main -d gitops-repo/k8s/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
@@ -332,7 +336,7 @@ pipeline {
                                 find gitops-repo -name "*.yaml" -o -name "*.yml" | head -10
                                 
                                 # Scan the entire gitops-repo for any YAML files
-                                checkov -d gitops-repo/ \
+                                python3 -m checkov.main -d gitops-repo/ \
                                     --framework kubernetes \
                                     --output cli \
                                     --output json \
