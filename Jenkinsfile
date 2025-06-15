@@ -13,6 +13,10 @@ pipeline {
         SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
+    tools {
+        sonarQube 'SonarScanner'
+    }
+
     stages {
         stage('Setup') {
             steps {
@@ -63,24 +67,12 @@ pipeline {
         stage('SonarCloud Analysis') {
             steps {
                 script {
-                    // Run SonarCloud analysis
+                    // Run SonarCloud analysis using Jenkins tool
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                         sh '''
-                            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-                            export PATH=$JAVA_HOME/bin:$PATH:$(pwd)/sonar-scanner/bin
-                            
                             echo "Starting SonarCloud analysis..."
                             echo "Project Key: Pyroborn_user-service"
                             echo "Organization: pyroborn"
-                            
-                            # Use existing sonar-scanner or install if needed
-                            if ! command -v sonar-scanner &> /dev/null; then
-                                echo "Installing SonarScanner..."
-                                wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                                unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
-                                mv sonar-scanner-5.0.1.3006-linux sonar-scanner
-                                chmod +x sonar-scanner/bin/sonar-scanner
-                            fi
                             
                             sonar-scanner \
                                 -Dsonar.projectKey=Pyroborn_user-service \
