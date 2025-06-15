@@ -370,15 +370,46 @@ try:
                 check_name = check.get('check_name', 'Unknown Check')
                 file_path = check.get('file_path', 'Unknown File')
                 resource = check.get('resource', 'Unknown Resource')
-                description = check.get('description', 'No description available')
-                guideline = check.get('guideline', 'No guideline available')
+                
+                # Get line numbers and code context
+                file_line_range = check.get('file_line_range', [])
+                code_block = check.get('code_block', [])
+                severity = check.get('severity', 'UNKNOWN')
+                bc_check_id = check.get('bc_check_id', '')
+                guideline = check.get('guideline', '')
                 
                 report.write(f"{i}. {check_id}: {check_name}\\n")
-                report.write(f"   File: {file_path}\\n")
+                report.write(f"   File: {file_path}")
+                
+                # Add line numbers if available
+                if file_line_range and len(file_line_range) >= 2:
+                    start_line = file_line_range[0]
+                    end_line = file_line_range[1]
+                    if start_line == end_line:
+                        report.write(f" (line {start_line})")
+                    else:
+                        report.write(f" (lines {start_line}-{end_line})")
+                report.write("\\n")
+                
                 report.write(f"   Resource: {resource}\\n")
-                report.write(f"   Description: {description}\\n")
-                if guideline and guideline != 'No guideline available':
+                
+                # Add severity if available
+                if severity and severity != 'UNKNOWN':
+                    report.write(f"   Severity: {severity}\\n")
+                
+                # Add code context if available
+                if code_block and len(code_block) > 0:
+                    report.write("   Code Context:\\n")
+                    for line_num, line_content in code_block:
+                        if isinstance(line_content, str) and line_content.strip():
+                            report.write(f"     {line_num}: {line_content.rstrip()}\\n")
+                
+                # Add guideline/fix if available
+                if guideline and guideline.strip():
                     report.write(f"   Fix: {guideline}\\n")
+                elif bc_check_id:
+                    report.write(f"   Check ID: {bc_check_id}\\n")
+                
                 report.write("\\n")
         
         print(f'📄 Readable report generated: security-reports/checkov-readable-report.txt')
