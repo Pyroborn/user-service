@@ -13,9 +13,6 @@ pipeline {
         SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
-    tools {
-        sonarQube 'SonarScanner'
-    }
 
     stages {
         stage('Setup') {
@@ -69,12 +66,13 @@ pipeline {
                 script {
                     // Run SonarCloud analysis using Jenkins tool
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                        def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
                         sh '''
                             echo "Starting SonarCloud analysis..."
                             echo "Project Key: Pyroborn_user-service"
                             echo "Organization: pyroborn"
                             
-                            sonar-scanner \
+                            ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=Pyroborn_user-service \
                                 -Dsonar.organization=pyroborn \
                                 -Dsonar.host.url=https://sonarcloud.io \
