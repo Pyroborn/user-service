@@ -125,6 +125,75 @@ pipeline {
                 }
             }
         }
+
+        stage('Build Image') {
+            steps {
+                script {
+                    // Build Docker image
+                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+        
+        stage('Trivy Container Security Scan') {
+        steps {
+            script {
+            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
+            sh 'mkdir -p security-reports'
+
+            // Download the official Trivy HTML template
+            sh '''
+                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+                -o /tmp/html.tpl
+            '''
+
+            // Run Trivy scans using the downloaded html.tpl and JSON output format
+            sh """
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format template --template "@/tmp/html.tpl" \
+                -o security-reports/trivy-report.html ${imageName}
+
+                trivy image --no-progress --exit-code 0 --scanners vuln \
+                --format json \
+                -o security-reports/trivy-report.json ${imageName}
+
+                echo "Security scan completed - results won't fail the build"
+            """
+
+            // Publish and archive reports
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'security-reports',
+                reportFiles: 'trivy-report.html',
+                reportName: 'Trivy Security Scan'
+            ])
+            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
+            }
+        }
+        }
+        
+        stage('Push to DockerHub') {
+            steps {
+                script {
+                    // Create docker config
+                    sh '''
+                        mkdir -p ${DOCKER_CONFIG}
+                        echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
+                    '''
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
+                        sh '''
+                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                            docker push ${IMAGE_NAME}:latest
+                            docker logout
+                        '''
+                    }
+                }
+            }
+        }
         
         stage('Update GitOps Repository') {
             steps {
@@ -214,31 +283,14 @@ pipeline {
                     // Create reports directory
                     sh 'mkdir -p security-reports'
                     
-                    // Install Checkov using pipx to avoid externally managed environment
+                    // Verify Checkov is available
                     sh '''
-                        if ! command -v checkov &> /dev/null; then
-                            echo "Installing pipx and Checkov..."
-                            
-                            # Install pipx if not available
-                            if ! command -v pipx &> /dev/null; then
-                                sudo apt-get update
-                                sudo apt-get install -y pipx
-                                pipx ensurepath
-                            fi
-                            
-                            # Install Checkov using pipx
-                            pipx install checkov
-                            export PATH=$PATH:$HOME/.local/bin
-                        fi
-                        
-                        echo "Checkov version:"
-                        checkov --version || $HOME/.local/bin/checkov --version
+                        echo "Checking Checkov installation..."
+                        checkov --version
                     '''
                     
                     // Run Checkov scan on GitOps repository
                     sh '''
-                        export PATH=$PATH:$HOME/.local/bin
-                        
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
                         # Check if GitOps repo directory exists from previous stage
@@ -375,75 +427,6 @@ EOF
                 }
                 success {
                     echo 'Checkov infrastructure security scan completed successfully!'
-                }
-            }
-        }
-
-        stage('Build Image') {
-            steps {
-                script {
-                    // Build Docker image
-                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-                }
-            }
-        }
-        
-        stage('Trivy Container Security Scan') {
-        steps {
-            script {
-            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
-            sh 'mkdir -p security-reports'
-
-            // Download the official Trivy HTML template
-            sh '''
-                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-                -o /tmp/html.tpl
-            '''
-
-            // Run Trivy scans using the downloaded html.tpl and JSON output format
-            sh """
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format template --template "@/tmp/html.tpl" \
-                -o security-reports/trivy-report.html ${imageName}
-
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format json \
-                -o security-reports/trivy-report.json ${imageName}
-
-                echo "Security scan completed - results won't fail the build"
-            """
-
-            // Publish and archive reports
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'security-reports',
-                reportFiles: 'trivy-report.html',
-                reportName: 'Trivy Security Scan'
-            ])
-            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
-            }
-        }
-        }
-
-        stage('Push to DockerHub') {
-            steps {
-                script {
-                    // Create docker config
-                    sh '''
-                        mkdir -p ${DOCKER_CONFIG}
-                        echo '{"auths": {"https://index.docker.io/v1/": {}}}' > ${DOCKER_CONFIG}/config.json
-                    '''
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKERHUB_PASSWORD', usernameVariable: 'DOCKERHUB_USERNAME')]) {
-                        sh '''
-                            echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-                            docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                            docker push ${IMAGE_NAME}:latest
-                            docker logout
-                        '''
-                    }
                 }
             }
         }
