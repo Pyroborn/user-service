@@ -283,14 +283,14 @@ pipeline {
                     // Create reports directory
                     sh 'mkdir -p security-reports'
                     
-                    // Verify Checkov is available
-                    sh '''
-                        echo "Checking Checkov installation..."
-                        checkov --version
-                    '''
-                    
                     // Run Checkov scan on GitOps repository
                     sh '''
+                        # Add common Checkov installation paths to PATH
+                        export PATH=$PATH:/home/mert/.local/bin/checkov
+                        
+                        echo "Checking Checkov installation..."
+                        checkov --version
+                        
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
                         # Check if GitOps repo directory exists from previous stage
