@@ -126,6 +126,128 @@ pipeline {
             }
         }
         
+        stage('Checkov Infrastructure Security Scan') {
+            steps {
+                script {
+                    // Create reports directory
+                    sh 'mkdir -p security-reports'
+                    
+                    // Install Checkov if not available
+                    sh '''
+                        if ! command -v checkov &> /dev/null; then
+                            echo "Installing Checkov..."
+                            pip3 install --user checkov
+                            export PATH=$PATH:$HOME/.local/bin
+                        fi
+                        
+                        echo "Checkov version:"
+                        checkov --version || $HOME/.local/bin/checkov --version
+                    '''
+                    
+                    // Run Checkov scan
+                    sh '''
+                        export PATH=$PATH:$HOME/.local/bin
+                        
+                        echo "Starting Checkov Infrastructure Security Scan..."
+                        echo "Scanning directory: k8s/"
+                        
+                        # Check if k8s directory exists
+                        if [ -d "k8s" ]; then
+                            echo "Found k8s directory, scanning Kubernetes manifests..."
+                            ls -la k8s/
+                            
+                            # Run Checkov scan with multiple output formats
+                            checkov -d k8s/ \
+                                --framework kubernetes \
+                                --output cli \
+                                --output json \
+                                --output-file-path security-reports/checkov-report.json \
+                                --soft-fail \
+                                --compact || echo "Checkov scan completed with findings"
+                            
+                            # Generate HTML report if jq is available
+                            if command -v jq &> /dev/null; then
+                                echo "Generating HTML summary report..."
+                                cat > security-reports/checkov-report.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkov Infrastructure Security Scan Report</title>
+    <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; }
+                                .header { background-color: #f4f4f4; padding: 10px; border-radius: 5px; }
+                                .passed { color: green; font-weight: bold; }
+                                .failed { color: red; font-weight: bold; }
+                                .summary { background-color: #e9f4ff; padding: 15px; border-radius: 5px; margin: 10px 0; }
+                                .check { margin: 10px 0; padding: 10px; border-left: 4px solid #ccc; }
+                                .check.failed { border-left-color: #ff4444; background-color: #fff5f5; }
+                                .check.passed { border-left-color: #44ff44; background-color: #f5fff5; }
+                                pre { background-color: #f8f8f8; padding: 10px; border-radius: 3px; overflow-x: auto; }
+                            </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Checkov Infrastructure Security Scan Report</h1>
+        <p>Build: ${BUILD_NUMBER} | Date: $(date)</p>
+    </div>
+    <div class="summary">
+        <h2>Scan Summary</h2>
+        <p>This report shows the results of scanning Kubernetes manifests for security and compliance issues.</p>
+    </div>
+    <div>
+        <h2>Detailed Results</h2>
+        <p>For detailed JSON results, see the checkov-report.json file.</p>
+        <pre>$(cat security-reports/checkov-report.json | jq -r '.summary // "Summary not available"' 2>/dev/null || echo "JSON summary not available")</pre>
+    </div>
+</body>
+</html>
+EOF
+                            else
+                                echo "jq not available, skipping HTML report generation"
+                            fi
+                            
+                        else
+                            echo "WARNING: k8s directory not found in repository root"
+                            echo "Available directories:"
+                            ls -la
+                            
+                            # Create empty report
+                            echo '{"summary": {"failed": 0, "passed": 0, "skipped": 0}, "message": "No k8s directory found"}' > security-reports/checkov-report.json
+                        fi
+                    '''
+                }
+            }
+            post {
+                always {
+                    // Archive Checkov reports
+                    archiveArtifacts(
+                        artifacts: 'security-reports/checkov-*',
+                        allowEmptyArchive: true
+                    )
+                    
+                    // Publish HTML report if it exists
+                    script {
+                        if (fileExists('security-reports/checkov-report.html')) {
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'security-reports',
+                                reportFiles: 'checkov-report.html',
+                                reportName: 'Checkov Security Scan'
+                            ])
+                        }
+                    }
+                }
+                failure {
+                    echo 'Checkov infrastructure security scan encountered issues!'
+                }
+                success {
+                    echo 'Checkov infrastructure security scan completed successfully!'
+                }
+            }
+        }
+
         stage('Build Image') {
             steps {
                 script {
