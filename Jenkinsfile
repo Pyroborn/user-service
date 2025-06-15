@@ -296,40 +296,36 @@ pipeline {
                             if [ -d "gitops-repo/deployments" ]; then
                                 echo "Scanning deployments directory..."
                                 
-                                # Run Checkov scan and ensure report is generated
+                                # Run Checkov scan and suppress all output
                                 checkov -d gitops-repo/deployments/ \
                                     --framework kubernetes \
                                     --output json \
                                     --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet || echo "Checkov scan completed"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                                 
                             elif [ -d "gitops-repo/k8s" ]; then
                                 echo "Scanning k8s directory..."
                                 
-                                # Run Checkov scan and ensure report is generated
+                                # Run Checkov scan and suppress all output
                                 checkov -d gitops-repo/k8s/ \
                                     --framework kubernetes \
                                     --output json \
                                     --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet || echo "Checkov scan completed"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                                     
                             else
                                 echo "Scanning entire GitOps repository..."
                                 
-                                # Run Checkov scan and ensure report is generated
+                                # Run Checkov scan and suppress all output
                                 checkov -d gitops-repo/ \
                                     --framework kubernetes \
                                     --output json \
                                     --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet || echo "Checkov scan completed"
+                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
                             fi
-                            
-                            # Check for generated report files
-                            echo "Checking for generated reports..."
-                            ls -la security-reports/
                             
                             # Look for JSON report (Checkov might name it differently)
                             if [ -f "security-reports/results_json.json" ]; then
@@ -339,78 +335,65 @@ pipeline {
                             # Show brief summary
                             if [ -f "security-reports/checkov-report.json" ]; then
                                 echo "=== Checkov Summary ==="
-                                python3 -c "
-                            import json
-                            try:
-                                with open('security-reports/checkov-report.json', 'r') as f:
-                                    data = json.load(f)
-                                
-                                # Get summary
-                                summary = data.get('summary', {})
-                                passed = summary.get('passed', 0)
-                                failed = summary.get('failed', 0)
-                                skipped = summary.get('skipped', 0)
-                                
-                                print(f'📊 Total: {passed + failed + skipped} checks | ✅ Passed: {passed} | ❌ Failed: {failed} | ⏭️ Skipped: {skipped}')
-                                
-                                # Show failed checks details
-                                if failed > 0:
-                                    print(f'🚨 Security Issues Found ({failed} failures):')
-                                    print('=' * 80)
-                                    
-                                    failed_checks = data.get('results', {}).get('failed_checks', [])
-                                    
-                                    # Group by check type for better readability
-                                    check_groups = {}
-                                    for check in failed_checks[:20]:  # Limit to first 20 for console
-                                        check_id = check.get('check_id', 'Unknown')
-                                        check_name = check.get('check_name', 'Unknown Check')
-                                        file_path = check.get('file_path', 'Unknown File')
-                                        resource = check.get('resource', 'Unknown Resource')
-                                        
-                                        if check_id not in check_groups:
-                                            check_groups[check_id] = {
-                                                'name': check_name,
-                                                'files': []
-                                            }
-                                        check_groups[check_id]['files'].append(f'{file_path} ({resource})')
-                                    
-                                    # Display grouped results
-                                    for i, (check_id, info) in enumerate(check_groups.items(), 1):
-                                        print(f'{i:2d}. {check_id}: {info["name"]}')
-                                        for file_info in info['files'][:3]:  # Show max 3 files per check
-                                            print(f'    📁 {file_info}')
-                                        if len(info['files']) > 3:
-                                            print(f'    ... and {len(info["files"]) - 3} more files')
-                                        print()
-                                    
-                                    if len(failed_checks) > 20:
-                                        print(f'... and {len(failed_checks) - 20} more issues (check JSON report for complete list)')
-                                    
-                                    print('💡 Common Kubernetes security issues to fix:')
-                                    print('   • Add resource limits and requests')
-                                    print('   • Set security contexts (runAsNonRoot, readOnlyRootFilesystem)')
-                                    print('   • Configure network policies')
-                                    print('   • Add liveness/readiness probes')
-                                    print('   • Use specific image tags (avoid :latest)')
-                                    
-                                else:
-                                    print('🎉 No security issues found! All checks passed.')
-                                    
-                            except Exception as e:
-                                print(f'Could not parse summary: {e}')
-                                # Fallback - show raw summary
-                                try:
-                                    with open('security-reports/checkov-report.json', 'r') as f:
-                                        data = json.load(f)
-                                    summary = data.get('summary', {})
-                                    print(f'Raw summary: {summary}')
-                                except:
-                                    print('Could not read report file')
-                            "
+                                python3 << 'EOF'
+import json
+try:
+    with open('security-reports/checkov-report.json', 'r') as f:
+        data = json.load(f)
+    
+    # Get summary
+    summary = data.get('summary', {})
+    passed = summary.get('passed', 0)
+    failed = summary.get('failed', 0)
+    skipped = summary.get('skipped', 0)
+    
+    print(f'📊 Total: {passed + failed + skipped} checks | ✅ Passed: {passed} | ❌ Failed: {failed} | ⏭️ Skipped: {skipped}')
+    
+    # Show failed checks details
+    if failed > 0:
+        print(f'🚨 Security Issues Found ({failed} failures):')
+        print('=' * 60)
+        
+        failed_checks = data.get('results', {}).get('failed_checks', [])
+        
+        # Group by check type for better readability
+        check_groups = {}
+        for check in failed_checks[:15]:  # Limit to first 15 for console
+            check_id = check.get('check_id', 'Unknown')
+            check_name = check.get('check_name', 'Unknown Check')
+            file_path = check.get('file_path', 'Unknown File')
+            resource = check.get('resource', 'Unknown Resource')
+            
+            if check_id not in check_groups:
+                check_groups[check_id] = {
+                    'name': check_name,
+                    'files': []
+                }
+            check_groups[check_id]['files'].append(f'{file_path} ({resource})')
+        
+        # Display grouped results
+        for i, (check_id, info) in enumerate(check_groups.items(), 1):
+            print(f'{i:2d}. {check_id}: {info["name"]}')
+            for file_info in info['files'][:2]:  # Show max 2 files per check
+                print(f'    📁 {file_info}')
+            if len(info['files']) > 2:
+                print(f'    ... and {len(info["files"]) - 2} more files')
+            print()
+        
+        if len(failed_checks) > 15:
+            print(f'... and {len(failed_checks) - 15} more issues')
+        
+        print('💡 Check the archived JSON report for complete details')
+        
+    else:
+        print('🎉 No security issues found! All checks passed.')
+        
+except Exception as e:
+    print(f'Could not parse summary: {e}')
+    print('Check the archived JSON report for details')
+EOF
                             else
-                                echo "No Checkov report generated - checking what files exist:"
-                                find security-reports/ -name "*.json" -o -name "*.txt" | head -5
+                                echo "No Checkov report generated - check archived files"
                             fi
                             
                         else
