@@ -283,8 +283,8 @@ pipeline {
                     
                     // Run Checkov scan on GitOps repository
                     sh '''
-                        # Add pipx installation path to PATH
-                        export PATH=$PATH:/var/lib/jenkins/.local/bin
+                        # Add pipx installation path to PATH (fix Jenkins PATH warning)
+                        export PATH="$PATH:/var/lib/jenkins/.local/bin"
                         
                         echo "Starting Checkov Infrastructure Security Scan..."
                         
@@ -296,57 +296,67 @@ pipeline {
                             if [ -d "gitops-repo/deployments" ]; then
                                 echo "Scanning deployments directory..."
                                 
-                                # Run Checkov scan with minimal console output
+                                # Run Checkov scan and ensure report is generated
                                 checkov -d gitops-repo/deployments/ \
                                     --framework kubernetes \
                                     --output json \
-                                    --output-file-path security-reports/checkov-report.json \
+                                    --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
+                                    --quiet || echo "Checkov scan completed"
                                 
                             elif [ -d "gitops-repo/k8s" ]; then
                                 echo "Scanning k8s directory..."
                                 
-                                # Run Checkov scan with minimal console output
+                                # Run Checkov scan and ensure report is generated
                                 checkov -d gitops-repo/k8s/ \
                                     --framework kubernetes \
                                     --output json \
-                                    --output-file-path security-reports/checkov-report.json \
+                                    --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
+                                    --quiet || echo "Checkov scan completed"
                                     
                             else
                                 echo "Scanning entire GitOps repository..."
                                 
-                                # Run Checkov scan with minimal console output
+                                # Run Checkov scan and ensure report is generated
                                 checkov -d gitops-repo/ \
                                     --framework kubernetes \
                                     --output json \
-                                    --output-file-path security-reports/checkov-report.json \
+                                    --output-file-path security-reports/ \
                                     --soft-fail \
-                                    --quiet > /dev/null 2>&1 || echo "Checkov scan completed"
+                                    --quiet || echo "Checkov scan completed"
+                            fi
+                            
+                            # Check for generated report files
+                            echo "Checking for generated reports..."
+                            ls -la security-reports/
+                            
+                            # Look for JSON report (Checkov might name it differently)
+                            if [ -f "security-reports/results_json.json" ]; then
+                                mv security-reports/results_json.json security-reports/checkov-report.json
                             fi
                             
                             # Show brief summary
                             if [ -f "security-reports/checkov-report.json" ]; then
                                 echo "=== Checkov Summary ==="
                                 python3 -c "
-                                import json
-                                try:
-                                    with open('security-reports/checkov-report.json', 'r') as f:
-                                        data = json.load(f)
-                                    summary = data.get('summary', {})
-                                    passed = summary.get('passed', 0)
-                                    failed = summary.get('failed', 0)
-                                    skipped = summary.get('skipped', 0)
-                                    print(f'Passed: {passed}, Failed: {failed}, Skipped: {skipped}')
-                                    if failed > 0:
-                                        print(f'Found {failed} security issues - check JSON report for details')
-                                except:
-                                    print('Could not parse summary')
-                                "
+import json
+try:
+    with open('security-reports/checkov-report.json', 'r') as f:
+        data = json.load(f)
+    summary = data.get('summary', {})
+    passed = summary.get('passed', 0)
+    failed = summary.get('failed', 0)
+    skipped = summary.get('skipped', 0)
+    print(f'Passed: {passed}, Failed: {failed}, Skipped: {skipped}')
+    if failed > 0:
+        print(f'Found {failed} security issues - check JSON report for details')
+except:
+    print('Could not parse summary')
+"
                             else
-                                echo "No Checkov report generated"
+                                echo "No Checkov report generated - checking what files exist:"
+                                find security-reports/ -name "*.json" -o -name "*.txt" | head -5
                             fi
                             
                         else
