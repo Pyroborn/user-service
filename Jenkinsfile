@@ -10,7 +10,6 @@ pipeline {
         DOCKER_CONFIG = "${WORKSPACE}/.docker"
         GIT_REPO_URL = 'https://github.com/Pyroborn/k8s-argoCD.git'
         GIT_CREDENTIALS_ID = 'github-credentials'
-        SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
 
@@ -61,68 +60,6 @@ pipeline {
             }
         }
         
-        stage('SonarCloud Analysis') {
-            steps {
-                script {
-                    // Run SonarCloud analysis using Jenkins tool
-                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                        def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                        sh """
-                            echo "Starting SonarCloud analysis..."
-                            echo "Project: Pyroborn_user-service | Organization: pyroborn"
-                            
-                            # Run SonarScanner with minimal output
-                            ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=Pyroborn_user-service \
-                                -Dsonar.organization=pyroborn \
-                                -Dsonar.host.url=https://sonarcloud.io \
-                                -Dsonar.login=${SONAR_TOKEN} \
-                                -Dsonar.sources=. \
-                                -Dsonar.tests=. \
-                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                -Dsonar.coverage.exclusions="**/*.test.js,**/tests/**,**/node_modules/**,**/coverage/**,**/data/**" \
-                                -Dsonar.cpd.exclusions="**/*.test.js,**/tests/**,**/node_modules/**" \
-                                -Dsonar.exclusions="**/node_modules/**,**/coverage/**,**/data/**,**/*.min.js" \
-                                -Dsonar.projectVersion=${BUILD_NUMBER} \
-                                -Dsonar.buildString=${BUILD_NUMBER} \
-                                -Dsonar.log.level=WARN \
-                                -Dsonar.verbose=false > sonar-output.log 2>&1
-                            
-                            # Show only summary
-                            echo "=== SonarCloud Analysis Complete ==="
-                            if grep -q "EXECUTION SUCCESS" sonar-output.log; then
-                                echo "✅ Analysis completed successfully"
-                                # Extract and show key metrics
-                                grep -E "(Total time:|EXECUTION SUCCESS)" sonar-output.log | tail -2
-                            else
-                                echo "❌ Analysis failed - check logs"
-                                tail -10 sonar-output.log
-                                exit 1
-                            fi
-                        """
-                    }
-                }
-            }
-            post {
-                always {
-                    // Archive SonarCloud reports and logs
-                    script {
-                        if (fileExists('.scannerwork/report-task.txt')) {
-                            archiveArtifacts artifacts: '.scannerwork/report-task.txt', allowEmptyArchive: true
-                        }
-                        if (fileExists('sonar-output.log')) {
-                            archiveArtifacts artifacts: 'sonar-output.log', allowEmptyArchive: true
-                        }
-                    }
-                }
-                failure {
-                    echo 'SonarCloud analysis failed!'
-                }
-                success {
-                    echo 'SonarCloud analysis completed successfully!'
-                }
-            }
-        }
 
         stage('Build Image') {
             steps {
@@ -135,42 +72,42 @@ pipeline {
         }
         
         stage('Trivy Container Security Scan') {
-        steps {
-            script {
-            def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
-            sh 'mkdir -p security-reports'
+            steps {
+                script {
+                def imageName = "${IMAGE_NAME}:${BUILD_NUMBER}"
+                sh 'mkdir -p security-reports'
 
-            // Download the official Trivy HTML template
-            sh '''
-                curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
-                -o /tmp/html.tpl
-            '''
+                // Download the official Trivy HTML template
+                sh '''
+                    curl -fSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl \
+                    -o /tmp/html.tpl
+                '''
 
-            // Run Trivy scans using the downloaded html.tpl and JSON output format
-            sh """
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format template --template "@/tmp/html.tpl" \
-                -o security-reports/trivy-report.html ${imageName}
+                // Run Trivy scans using the downloaded html.tpl and JSON output format
+                sh """
+                    trivy image --no-progress --exit-code 0 --scanners vuln \
+                    --format template --template "@/tmp/html.tpl" \
+                    -o security-reports/trivy-report.html ${imageName}
 
-                trivy image --no-progress --exit-code 0 --scanners vuln \
-                --format json \
-                -o security-reports/trivy-report.json ${imageName}
+                    trivy image --no-progress --exit-code 0 --scanners vuln \
+                    --format json \
+                    -o security-reports/trivy-report.json ${imageName}
 
-                echo "Security scan completed - results won't fail the build"
-            """
+                    echo "Security scan completed - results won't fail the build"
+                """
 
-            // Publish and archive reports
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'security-reports',
-                reportFiles: 'trivy-report.html',
-                reportName: 'Trivy Security Scan'
-            ])
-            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
+                // Publish and archive reports
+                publishHTML(target: [
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'security-reports',
+                    reportFiles: 'trivy-report.html',
+                    reportName: 'Trivy Security Scan'
+                ])
+                archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
+                }
             }
-        }
         }
         
         stage('Push to DockerHub') {
